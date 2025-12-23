@@ -12,6 +12,11 @@ const { EventEmitter } = require('events');
 const peerflix = require('peerflix');
 const fetch = require('node-fetch');
 
+// Official version manifest (checked on every page load via /api/version-manifest).
+// If you fork FireFetch, update this to your repo’s raw URL.
+const OFFICIAL_VERSION_MANIFEST_URL = process.env.FIREFETCH_VERSION_MANIFEST_URL
+    || 'https://raw.githubusercontent.com/FireFetch/FireFetch/main/public/version-manifest.json';
+
 // Enhanced logging system
 class Logger {
     constructor() {
@@ -3460,6 +3465,37 @@ function createServer() {
     // Redirect root to index.html
     expressApp.get('/', (req, res) => {
         res.redirect('/index.html');
+    });
+
+    // Current app version (from Electron / package metadata)
+    expressApp.get('/api/app-version', (req, res) => {
+        res.setHeader('Cache-Control', 'no-store');
+        res.json({
+            version: app.getVersion()
+        });
+    });
+
+    // Version manifest: try fetching from the official repo; fall back to the local bundled copy.
+    expressApp.get('/api/version-manifest', async (req, res) => {
+        res.setHeader('Cache-Control', 'no-store');
+
+        try {
+            const response = await fetch(OFFICIAL_VERSION_MANIFEST_URL, {
+                headers: { 'Accept': 'application/json' }
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status} ${response.statusText}`);
+            }
+
+            const json = await response.json();
+            return res.json({ ...json, _source: 'official', _fetchedAt: new Date().toISOString() });
+        } catch (err) {
+            return res.status(502).json({
+                error: 'Failed to load version manifest from GitHub',
+                details: String(err?.message || err)
+            });
+        }
     });
     
     // Endpoint to get video info

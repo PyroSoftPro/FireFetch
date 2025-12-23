@@ -1323,9 +1323,54 @@ EOF < /dev/null
     width: 80%;
     margin: 0 auto;
     padding: 0 20px;
-    text-align: center;
     color: #b4b4b4;
     font-size: 14px;
+}
+
+.footer-content--split {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.footer-right {
+    text-align: right;
+}
+
+.footer-right p {
+    margin: 0;
+}
+
+.version-footer-slot {
+    min-width: 0;
+    font-size: 12px;
+    color: #7d7d7d;
+}
+
+.version-footer-message {
+    color: #7d7d7d;
+    font-weight: 500;
+}
+
+.version-footer-message--error {
+    color: #7d7d7d;
+    font-weight: 500;
+}
+
+.version-footer-sep {
+    color: #666;
+}
+
+.version-footer-link {
+    color: #8a8a8a;
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.version-footer-link:hover {
+    color: #b4b4b4;
+    text-decoration: underline;
 }
 
 /* Main content area should flex to fill space */
@@ -1428,5 +1473,64 @@ EOF < /dev/null
 
 .download-item.file {
     border-left: 4px solid #22c55e;
+}
+
+/* Version banner (Home page) */
+.version-banner {
+    border: 1px solid #2a2a2a;
+    border-radius: 12px;
+    overflow: hidden;
+    background: #101010;
+    margin-bottom: 26px;
+    box-shadow: none;
+    width: 100%;
+    max-width: 800px;
+}
+
+.version-banner-slot {
+    /* Sits between main content and footer, centered in the remaining vertical space */
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-top: auto;
+    margin-bottom: 0;
+    padding: 10px 0 10px 0;
+}
+
+.version-banner--error {
+    padding: 16px 18px;
+    color: #b4b4b4;
+    border-color: #2a2a2a;
+    background: #0f0f0f;
+    font-weight: 600;
+}
+
+.version-banner--text {
+    padding: 18px 18px;
+    background: #0f0f0f;
+}
+
+.version-banner__text {
+    color: #9a9a9a;
+    font-weight: 600;
+    font-size: 13px;
+    text-align: center;
+}
+
+.version-banner__link {
+    margin-top: 10px;
+    text-align: center;
+}
+
+.version-banner__link a {
+    color: #b4b4b4;
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.version-banner__link a:hover {
+    color: #e5e5e5;
+    text-decoration: underline;
 }
 

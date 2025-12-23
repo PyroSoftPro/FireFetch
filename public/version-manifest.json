@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "app": {
+    "latest": "25.6.12",
+    "minimumSupported": "25.0.0"
+  },
+  "links": {
+    "updateUrl": "https://github.com/FireFetch/FireFetch/releases/latest"
+  },
+  "messages": {
+    "upToDate": "You’re up to date (v{current}).",
+    "outOfDate": "Update available! You’re on v{current}; latest is v{latest}.",
+    "unknown": "FireFetch v{current}."
+  }
+}
+
+
