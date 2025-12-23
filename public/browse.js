@@ -269,8 +269,15 @@ function playVideo(index) {
     // Check autoplay setting
     const savedSettings = localStorage.getItem('firefetch-settings');
     if (savedSettings) {
-        const settings = JSON.parse(savedSettings);
-        if (settings.autoPlay) {
+        let settings;
+        try {
+            settings = JSON.parse(savedSettings);
+        } catch (err) {
+            console.warn('[SETTINGS] Invalid settings in localStorage. Resetting to defaults.', err.message);
+            localStorage.removeItem('firefetch-settings');
+            settings = null;
+        }
+        if (settings?.autoPlay) {
             playerVideo.play();
         }
     }

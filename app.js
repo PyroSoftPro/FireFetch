@@ -250,13 +250,36 @@ function getSettingsPath() {
     return path.join(basePath, 'settings.json');
 }
 
+// If a persisted JSON file becomes corrupted, quarantine it so the app can recover on next launch.
+async function quarantineCorruptJsonFile(filePath, label) {
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const quarantinedPath = `${filePath}.corrupt-${timestamp}`;
+    try {
+        await fs.rename(filePath, quarantinedPath);
+        console.warn(`[${label}] Corrupt JSON quarantined: ${quarantinedPath}`);
+        return quarantinedPath;
+    } catch (err) {
+        console.warn(`[${label}] Failed to quarantine corrupt JSON (${filePath}):`, err.message);
+        return null;
+    }
+}
+
 // Load settings from file if exists
 async function loadSettings() {
     try {
-        const data = await fs.readFile(getSettingsPath(), 'utf8');
-        settings = { ...settings, ...JSON.parse(data) };
+        const settingsPath = getSettingsPath();
+        const data = await fs.readFile(settingsPath, 'utf8');
+        try {
+            const parsed = JSON.parse(data);
+            settings = { ...settings, ...parsed };
+        } catch (parseErr) {
+            console.warn('[SETTINGS] settings.json contains invalid JSON. Falling back to defaults.', parseErr.message);
+            await quarantineCorruptJsonFile(settingsPath, 'SETTINGS');
+        }
     } catch (err) {
-        // Settings file doesn't exist, use defaults
+        if (err.code !== 'ENOENT') {
+            console.warn('[SETTINGS] Failed to read settings.json. Falling back to defaults.', err.message);
+        }
     }
 }
 
@@ -279,6 +302,20 @@ async function ensureCookiesDir() {
     } catch (err) {
         console.error('Error creating cookies directory:', err);
     }
+}
+
+// Safely resolve a user-provided (possibly relative) path within a base directory.
+// Prevents path traversal like "../../Windows/system.ini".
+function resolvePathInsideDir(baseDir, userPath) {
+    const baseAbs = path.resolve(baseDir);
+    const targetAbs = path.resolve(baseAbs, userPath);
+    const rel = path.relative(baseAbs, targetAbs);
+    if (rel.startsWith('..') || path.isAbsolute(rel)) {
+        const err = new Error('Invalid path');
+        err.code = 'INVALID_PATH';
+        throw err;
+    }
+    return targetAbs;
 }
 
 // Utility function to detect if URL is a direct file download
@@ -482,41 +519,60 @@ async function checkYtDlpSupport(url) {
     return new Promise((resolve) => {
         const ytDlpPath = path.join(depPath, 'yt-dlp.exe');
         const args = ['--dump-json', '--no-warnings', '--skip-download', '--playlist-items', '1', url];
-        
-        const timeout = setTimeout(() => {
-            process.kill();
-            resolve({ supported: false, reason: 'Timeout' });
+
+        let ytDlpProc = null;
+        let settled = false;
+        let timeoutId = null;
+
+        const finish = (result) => {
+            if (settled) return;
+            settled = true;
+            if (timeoutId) clearTimeout(timeoutId);
+            resolve(result);
+        };
+
+        timeoutId = setTimeout(() => {
+            try {
+                if (ytDlpProc && !ytDlpProc.killed) {
+                    ytDlpProc.kill(); // SIGTERM by default (works cross-platform)
+                }
+            } catch (e) {
+                // Ignore kill errors (e.g. already exited)
+            }
+            finish({ supported: false, reason: 'Timeout' });
         }, 15000);
 
-        const process = spawn(ytDlpPath, args);
+        ytDlpProc = spawn(ytDlpPath, args);
         let output = '';
         let errorOutput = '';
 
-        process.stdout.on('data', (data) => {
+        ytDlpProc.stdout.on('data', (data) => {
             output += data.toString();
         });
 
-        process.stderr.on('data', (data) => {
+        ytDlpProc.stderr.on('data', (data) => {
             errorOutput += data.toString();
         });
 
-        process.on('close', (code) => {
-            clearTimeout(timeout);
-            
+        ytDlpProc.on('error', (err) => {
+            finish({ supported: false, reason: 'Spawn failed', error: err.message });
+        });
+
+        ytDlpProc.on('close', (code) => {
             if (code === 0 && output.trim()) {
                 try {
                     const info = JSON.parse(output.trim().split('\n')[0]);
-                    resolve({
+                    finish({
                         supported: true,
                         title: info.title,
                         extractor: info.extractor || info.ie_key,
                         duration: info.duration
                     });
                 } catch (e) {
-                    resolve({ supported: false, reason: 'Invalid JSON response' });
+                    finish({ supported: false, reason: 'Invalid JSON response' });
                 }
             } else {
-                resolve({ 
+                finish({ 
                     supported: false, 
                     reason: errorOutput.includes('Unsupported URL') ? 'Unsupported site' : 'Unknown error',
                     error: errorOutput
@@ -3059,8 +3115,17 @@ class DownloadManager extends EventEmitter {
     // Load download state from persistent storage
     async loadState() {
         try {
-            const data = await fs.readFile(this.getDownloadsStatePath(), 'utf8');
-            const state = JSON.parse(data);
+            const statePath = this.getDownloadsStatePath();
+            const data = await fs.readFile(statePath, 'utf8');
+
+            let state;
+            try {
+                state = JSON.parse(data);
+            } catch (parseErr) {
+                console.error('[PERSISTENCE] downloads-state.json contains invalid JSON. Starting fresh.', parseErr.message);
+                await quarantineCorruptJsonFile(statePath, 'PERSISTENCE');
+                return;
+            }
             
             console.log(`[PERSISTENCE] Loading download state from ${this.getDownloadsStatePath()}`);
             
@@ -4125,12 +4190,14 @@ function createServer() {
         res.setHeader('Content-Type', 'application/json');
         
         try {
-            const filename = decodeURIComponent(req.params.filename);
-            const baseName = filename.replace(/\.[^/.]+$/, '');
+            const requested = decodeURIComponent(req.params.filename || '');
+            // Only use the last path segment for metadata lookups.
+            const safeFileName = path.basename(requested);
+            const baseName = safeFileName.replace(/\.[^/.]+$/, '');
             
             const dir = settings.downloadDir;
             
-            const jsonPath = path.join(dir, `${baseName}.info.json`);
+            const jsonPath = resolvePathInsideDir(dir, `${baseName}.info.json`);
             
             // Check if the metadata file exists
             try {
@@ -4372,9 +4439,9 @@ function createServer() {
             const filename = decodeURIComponent(req.params.filename);
             const dir = settings.downloadDir;
             
-            const videoPath = path.join(dir, filename);
-            const baseName = filename.replace(/\.[^/.]+$/, '');
-            const metadataPath = path.join(dir, `${baseName}.info.json`);
+            const videoPath = resolvePathInsideDir(dir, filename);
+            const baseName = path.basename(filename).replace(/\.[^/.]+$/, '');
+            const metadataPath = resolvePathInsideDir(dir, `${baseName}.info.json`);
             
             console.log(`[DELETE] Attempting to delete file: ${filename}`);
             
@@ -4463,6 +4530,9 @@ function createServer() {
             
             res.json({ success: true });
         } catch (err) {
+            if (err.code === 'INVALID_PATH') {
+                return res.status(400).json({ error: 'Invalid filename/path' });
+            }
             console.error('Error deleting video:', err);
             res.status(500).json({ 
                 error: err.message || 'Failed to delete video',
@@ -4481,8 +4551,7 @@ function createServer() {
             }
             
             const dir = settings.downloadDir;
-            // Ensure we have an absolute path for Windows
-            const filePath = path.isAbsolute(dir) ? path.join(dir, filename) : path.resolve(process.cwd(), dir, filename);
+            const filePath = resolvePathInsideDir(dir, filename);
             
             console.log(`[OPEN-FILE] Attempting to open: ${filePath}`);
             console.log(`[OPEN-FILE] Download dir: ${dir}`);
@@ -4534,6 +4603,9 @@ function createServer() {
             }
             
         } catch (err) {
+            if (err.code === 'INVALID_PATH') {
+                return res.status(400).json({ error: 'Invalid filename/path' });
+            }
             console.error('Error opening file:', err);
             res.status(500).json({ error: 'Failed to open file' });
         }

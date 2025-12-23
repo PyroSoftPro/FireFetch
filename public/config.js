@@ -15,7 +15,7 @@ const defaultSettings = {
     queueEnabled: true,
     autoStart: true,
     retryAttempts: 2,
-    retryDelay: 5,
+    retryDelay: 5000,
     // Torrent settings
     torrentEngine: 'aria2c'
 };
@@ -115,7 +115,17 @@ function showFetchError(message) {
 // Load settings from localStorage
 function loadSettings() {
     const savedSettings = localStorage.getItem('firefetch-settings');
-    const settings = savedSettings ? JSON.parse(savedSettings) : defaultSettings;
+    let settings = defaultSettings;
+    if (savedSettings) {
+        try {
+            // Merge over defaults so missing keys don't break the UI
+            settings = { ...defaultSettings, ...JSON.parse(savedSettings) };
+        } catch (err) {
+            console.warn('[SETTINGS] Invalid settings in localStorage. Resetting to defaults.', err.message);
+            localStorage.removeItem('firefetch-settings');
+            settings = defaultSettings;
+        }
+    }
     
     // Apply settings to form
     document.getElementById('downloadDir').value = settings.downloadDir;
@@ -126,7 +136,7 @@ function loadSettings() {
     document.getElementById('segmentSize').value = settings.segmentSize;
     
     // Torrent settings
-    document.getElementById('torrentEngine').value = settings.torrentEngine || 'webtorrent';
+    document.getElementById('torrentEngine').value = settings.torrentEngine || defaultSettings.torrentEngine;
     
     // Queue settings
     document.getElementById('maxConcurrentDownloads').value = settings.maxConcurrentDownloads || 3;
@@ -139,6 +149,9 @@ function loadSettings() {
     setToggleSwitch('showProgress', settings.showProgress);
     setToggleSwitch('queueEnabled', settings.queueEnabled !== false);
     setToggleSwitch('autoStart', settings.autoStart !== false);
+
+    // Check cookie file status
+    checkCookieFileStatus();
 }
 
 // Save settings to localStorage and server
@@ -300,28 +313,6 @@ async function clearCookieFile() {
         console.error('Error clearing cookie file:', error);
         showFetchError('Failed to clear cookie file');
     }
-}
-
-// Update loadSettings to handle cookie status
-function loadSettings() {
-    const savedSettings = localStorage.getItem('firefetch-settings');
-    const settings = savedSettings ? JSON.parse(savedSettings) : defaultSettings;
-    
-    // Apply settings to form
-    document.getElementById('downloadDir').value = settings.downloadDir;
-    document.getElementById('defaultQuality').value = settings.defaultQuality;
-    document.getElementById('outputFormat').value = settings.outputFormat;
-    document.getElementById('connections').value = settings.connections;
-    document.getElementById('segments').value = settings.segments;
-    document.getElementById('segmentSize').value = settings.segmentSize;
-    
-    // Set toggle switches
-    setToggleSwitch('saveMetadata', settings.saveMetadata);
-    setToggleSwitch('autoPlay', settings.autoPlay);
-    setToggleSwitch('showProgress', settings.showProgress);
-    
-    // Check cookie file status
-    checkCookieFileStatus();
 }
 
 async function checkCookieFileStatus() {
