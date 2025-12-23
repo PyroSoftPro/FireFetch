@@ -5,7 +5,7 @@
     "minimumSupported": "25.0.0"
   },
   "links": {
-    "updateUrl": "https://github.com/FireFetch/FireFetch/releases/latest"
+    "updateUrl": "https://github.com/PyroSoftPro/FireFetch/releases/latest"
   },
   "messages": {
     "upToDate": "You’re up to date (v{current}).",

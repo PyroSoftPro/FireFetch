@@ -15,7 +15,7 @@ const fetch = require('node-fetch');
 // Official version manifest (checked on every page load via /api/version-manifest).
 // If you fork FireFetch, update this to your repo’s raw URL.
 const OFFICIAL_VERSION_MANIFEST_URL = process.env.FIREFETCH_VERSION_MANIFEST_URL
-    || 'https://raw.githubusercontent.com/FireFetch/FireFetch/main/public/version-manifest.json';
+    || 'https://raw.githubusercontent.com/PyroSoftPro/FireFetch/main/public/version-manifest.json';
 
 // Enhanced logging system
 class Logger {
