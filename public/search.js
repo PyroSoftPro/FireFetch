@@ -174,7 +174,7 @@ function displaySearchResults(results) {
     resultsCount.textContent = `${results.length} results for "${currentSearchQuery}"`;
     noResults.style.display = 'none';
     
-    // Generate HTML for results
+    // Generate HTML for results (Fluent card grid)
     console.log('About to generate HTML for', results.length, 'results'); // Debug log
     const htmlContent = results.map((video, index) => {
         const duration = formatDuration(video.duration);
@@ -184,35 +184,28 @@ function displaySearchResults(results) {
         const description = escapeHtml(video.description || '');
         
         return `
-            <div class="search-result-card">
-                <div class="search-result-content">
-                    <div class="search-thumbnail">
-                        ${thumbnail ? 
-                            `<img src="${thumbnail}" alt="${title}" loading="lazy">` :
-                            `<div style="width: 100%; height: 100%; background: linear-gradient(135deg, #6b6b6b 0%, #ff6b35 100%); display: flex; align-items: center; justify-content: center; color: white; border-radius: 8px;">
-                                <svg width="40" height="40" viewBox="0 0 24 24" fill="currentColor">
-                                    <path d="M8 5v14l11-7z"/>
-                                </svg>
-                            </div>`
-                        }
-                        ${duration ? `<div class="search-duration">${duration}</div>` : ''}
-                    </div>
-                    <div class="search-result-info">
-                        <div class="search-result-title">${title}</div>
-                        <div class="search-result-meta">
-                            <span class="search-result-uploader">${uploader}</span>
-                            ${video.view_count ? ` • ${formatViewCount(video.view_count)} views` : ''}
-                            ${video.upload_date ? ` • ${formatUploadDate(video.upload_date)}` : ''}
-                        </div>
-                        ${description ? `<div class="search-result-description">${description}</div>` : ''}
-                        <div class="search-result-actions">
-                            <button class="action-btn download-btn" onclick="openDownloadModal(${index})">
-                                📥 Download
-                            </button>
-                            <button class="action-btn stream-btn" onclick="streamVideo(${index})">
-                                ▶️ Stream
-                            </button>
-                        </div>
+            <div class="ff-card media-card">
+                ${thumbnail
+                    ? `<img class="media-thumb" src="${thumbnail}" alt="${title}" loading="lazy">`
+                    : `<div class="media-thumb" style="display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg, rgba(107,107,107,0.7) 0%, rgba(255,107,53,0.7) 100%);color:white;">
+                           <i data-lucide="play-circle"></i>
+                       </div>`
+                }
+                ${duration ? `<div class="video-duration">${duration}</div>` : ''}
+                <div class="media-actions">
+                    <button class="icon-btn" type="button" onclick="openDownloadModal(${index})" title="Download">
+                        <i data-lucide="download"></i>
+                    </button>
+                    <button class="icon-btn" type="button" onclick="streamVideo(${index})" title="Stream">
+                        <i data-lucide="play"></i>
+                    </button>
+                </div>
+                <div class="media-meta">
+                    <div class="media-title">${title}</div>
+                    <div class="media-sub">
+                        <span>${uploader}</span>
+                        ${video.view_count ? `<span>• ${formatViewCount(video.view_count)} views</span>` : ''}
+                        ${video.upload_date ? `<span>• ${formatUploadDate(video.upload_date)}</span>` : ''}
                     </div>
                 </div>
             </div>
@@ -223,6 +216,14 @@ function displaySearchResults(results) {
     console.log('First HTML snippet:', htmlContent[0]?.substring(0, 200)); // Debug log
     
     searchResultsContainer.innerHTML = htmlContent.join('');
+
+    try {
+        if (window.lucide && typeof window.lucide.createIcons === 'function') {
+            window.lucide.createIcons();
+        }
+    } catch {
+        // ignore icon failures
+    }
 }
 
 // Sort search results

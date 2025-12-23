@@ -1,5 +1,33 @@
 // Global header and footer component loader
 class GlobalComponents {
+    static ensureLucide() {
+        return new Promise((resolve) => {
+            try {
+                if (window.lucide && typeof window.lucide.createIcons === 'function') {
+                    resolve();
+                    return;
+                }
+
+                const existing = document.querySelector('script[data-ff-lucide="1"]');
+                if (existing) {
+                    existing.addEventListener('load', () => resolve(), { once: true });
+                    existing.addEventListener('error', () => resolve(), { once: true });
+                    return;
+                }
+
+                const script = document.createElement('script');
+                script.src = 'https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js';
+                script.defer = true;
+                script.setAttribute('data-ff-lucide', '1');
+                script.onload = () => resolve();
+                script.onerror = () => resolve();
+                document.head.appendChild(script);
+            } catch {
+                resolve();
+            }
+        });
+    }
+
     static async loadHeader() {
         const userDisplay = `<div class="user-info">
             <span id="app-version-badge" class="user-name">v…</span>
@@ -12,12 +40,12 @@ class GlobalComponents {
                     <h1 class="fire-accent">FireFetch</h1>
                 </div>
                 <div class="nav-links">
-                    <a href="index.html">Home</a>
-                    <a href="search.html">Search</a>
-                    <a href="downloads.html">Queue</a>
-                    <a href="browse.html">Videos</a>
-                    <a href="files.html">Files</a>
-                    <a href="config.html">Settings</a>
+                    <a href="index.html"><i data-lucide="home"></i><span>Home</span></a>
+                    <a href="search.html"><i data-lucide="search"></i><span>Search</span></a>
+                    <a href="downloads.html"><i data-lucide="list-video"></i><span>Queue</span></a>
+                    <a href="browse.html"><i data-lucide="folder-play"></i><span>Videos</span></a>
+                    <a href="files.html"><i data-lucide="folder"></i><span>Files</span></a>
+                    <a href="config.html"><i data-lucide="settings"></i><span>Settings</span></a>
                 </div>
                 ${userDisplay}
             </div>
@@ -27,6 +55,14 @@ class GlobalComponents {
         if (headerContainer) {
             headerContainer.innerHTML = headerHtml;
             this.setActiveNavItem();
+            // Lucide icons: safe to call multiple times; will no-op if missing.
+            try {
+                if (window.lucide && typeof window.lucide.createIcons === 'function') {
+                    window.lucide.createIcons();
+                }
+            } catch {
+                // ignore icon failures
+            }
         }
     }
 
@@ -78,6 +114,7 @@ class GlobalComponents {
     }
 
     static async init() {
+        await this.ensureLucide();
         await this.loadHeader();
         await this.loadFooter();
         await this.loadAppVersionBadge();

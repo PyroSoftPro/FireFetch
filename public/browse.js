@@ -215,47 +215,45 @@ function displayVideos(videos) {
     
     grid.innerHTML = videos.map((video, index) => {
         const originalIndex = videosData.indexOf(video);
+        const safeTitle = String(video.title || 'Untitled').replace(/"/g, '&quot;');
         return `
-        <div class="video-card">
-            <div class="thumbnail-container" onclick="playVideo(${originalIndex})">
-                ${video.thumbnail ? 
-                    `<img src="${video.thumbnail}" alt="${video.title}" class="video-thumbnail">` :
-                    `<div class="video-thumbnail default-thumbnail" style="background: linear-gradient(135deg, #6b6b6b 0%, #ff6b35 100%); display: flex; align-items: center; justify-content: center; color: white;">
-                        <svg width="60" height="60" viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M8 5v14l11-7z"/>
-                        </svg>
-                    </div>`
-                }
-                ${video.duration ? `<div class="video-duration">${video.duration}</div>` : ''}
-                <div class="video-card-actions">
-                    <button class="card-action-button" onclick="event.stopPropagation(); showVideoInfo(${originalIndex})" title="Video Info">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
-                        </svg>
-                    </button>
-                    <button class="card-action-button" onclick="event.stopPropagation(); playVideo(${originalIndex})" title="Play">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M8 5v14l11-7z"/>
-                        </svg>
-                    </button>
-                    <button class="card-action-button delete-button" onclick="event.stopPropagation(); deleteVideo(${originalIndex})" title="Delete">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
-                        </svg>
-                    </button>
-                </div>
+        <div class="ff-card media-card" onclick="playVideo(${originalIndex})">
+            ${video.thumbnail
+                ? `<img src="${video.thumbnail}" alt="${safeTitle}" class="media-thumb">`
+                : `<div class="media-thumb" style="display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg, rgba(107,107,107,0.7) 0%, rgba(255,107,53,0.7) 100%);color:white;">
+                       <i data-lucide="play-circle"></i>
+                   </div>`
+            }
+            ${video.duration ? `<div class="video-duration">${video.duration}</div>` : ''}
+            <div class="media-actions">
+                <button class="icon-btn" type="button" onclick="event.stopPropagation(); showVideoInfo(${originalIndex})" title="Info">
+                    <i data-lucide="info"></i>
+                </button>
+                <button class="icon-btn" type="button" onclick="event.stopPropagation(); playVideo(${originalIndex})" title="Play">
+                    <i data-lucide="play"></i>
+                </button>
+                <button class="icon-btn danger" type="button" onclick="event.stopPropagation(); deleteVideo(${originalIndex})" title="Delete">
+                    <i data-lucide="trash-2"></i>
+                </button>
             </div>
-            <div class="video-info">
-                <div class="video-title">${video.title}</div>
-                <div class="video-meta">
-                    ${video.site ? `<span class="video-site" style="background: #ff6b6b; color: white; padding: 2px 8px; border-radius: 12px; font-size: 12px; margin-right: 8px; display: inline-block;">${getSiteFriendlyName(video.site)}</span>` : ''}
-                    ${video.uploader ? `<span class="video-uploader">${video.uploader}</span>` : ''}
-                    ${video.description ? `<div class="video-description" style="color: #999; font-size: 13px; margin-top: 5px; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;">${video.description}</div>` : ''}
+            <div class="media-meta">
+                <div class="media-title">${video.title || 'Untitled'}</div>
+                <div class="media-sub">
+                    ${video.site ? `<span class="site-badge">${getSiteFriendlyName(video.site)}</span>` : ''}
+                    ${video.uploader ? `<span>${video.uploader}</span>` : ''}
                 </div>
             </div>
         </div>
         `;
     }).join('');
+
+    try {
+        if (window.lucide && typeof window.lucide.createIcons === 'function') {
+            window.lucide.createIcons();
+        }
+    } catch {
+        // ignore icon failures
+    }
 }
 
 function playVideo(index) {

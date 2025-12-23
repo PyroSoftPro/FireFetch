@@ -65,6 +65,23 @@ document.addEventListener('DOMContentLoaded', function() {
     // Setup filter event listeners
     document.getElementById('statusFilter').addEventListener('change', filterDownloads);
     document.getElementById('sortBy').addEventListener('change', sortDownloads);
+
+    // Fluent pill filters (drive the hidden <select> so existing logic keeps working)
+    const pillBar = document.getElementById('queueStatusPills');
+    if (pillBar) {
+        pillBar.addEventListener('click', (e) => {
+            const btn = e.target?.closest?.('button[data-status]');
+            if (!btn) return;
+            const status = btn.getAttribute('data-status') ?? '';
+            const sel = document.getElementById('statusFilter');
+            if (sel) {
+                sel.value = status;
+                filterDownloads();
+            }
+            pillBar.querySelectorAll('.pill').forEach(p => p.classList.remove('active'));
+            btn.classList.add('active');
+        });
+    }
     
     // Connect to download stream
     console.log('[DOWNLOADS] Connecting to download stream');
@@ -354,7 +371,6 @@ function updateAllDownloads() {
     
     // Update queue controls
     updateQueueControls();
-    updateStatusBar();
 }
 
 // Filter downloads based on status
@@ -433,35 +449,63 @@ function displayDownloads() {
     console.log('[DOWNLOADS] Showing downloads container, hiding no downloads message');
     downloadsContainer.style.display = 'block';
     noDownloads.style.display = 'none';
-    
-    // Update existing items or create new ones
+
+    // Kanban lane containers
+    const laneQueued = document.getElementById('kanbanQueued');
+    const laneActive = document.getElementById('kanbanActive');
+    const laneCompleted = document.getElementById('kanbanCompleted');
+    const laneIssues = document.getElementById('kanbanIssues');
+
+    if (!laneQueued || !laneActive || !laneCompleted || !laneIssues) {
+        console.warn('[DOWNLOADS] Kanban lanes missing; falling back to linear render');
+        downloadsContainer.innerHTML = '';
+        filteredDownloads.forEach(d => downloadsContainer.appendChild(createDownloadItem(d)));
+        return;
+    }
+
+    const laneForStatus = (status) => {
+        switch (status) {
+            case 'starting':
+            case 'downloading':
+            case 'processing':
+                return laneActive;
+            case 'completed':
+                return laneCompleted;
+            case 'failed':
+            case 'cancelled':
+                return laneIssues;
+            case 'retrying':
+            case 'queued':
+            default:
+                return laneQueued;
+        }
+    };
+
+    // Snapshot existing items across all lanes for in-place progress updates
     const existingItems = downloadsContainer.querySelectorAll('.download-item');
-    const existingIds = Array.from(existingItems).map(item => item.getAttribute('data-id'));
-    
-    // Update or create items
+
+    // Update/create/move items
     filteredDownloads.forEach((download, index) => {
         console.log(`[DOWNLOADS] Processing download ${index}: ${download.id} - ${download.status}`);
+        const targetLane = laneForStatus(download.status);
         const existingItem = downloadsContainer.querySelector(`[data-id="${download.id}"]`);
-        
+
         if (existingItem && (download.status === 'downloading' || download.status === 'starting' || download.status === 'processing')) {
-            // Update in place for smooth progress animations
-            console.log(`[DOWNLOADS] Updating existing item for ${download.id}`);
             updateDownloadItemInPlace(existingItem, download);
+            if (existingItem.parentElement !== targetLane) {
+                targetLane.appendChild(existingItem);
+            }
         } else {
-            // Create new item or replace if status changed significantly
-            console.log(`[DOWNLOADS] Creating new item for ${download.id}`);
             const newItem = createDownloadItem(download);
-            console.log(`[DOWNLOADS] Created item:`, newItem);
             if (existingItem) {
-                console.log(`[DOWNLOADS] Replacing existing item for ${download.id}`);
                 existingItem.replaceWith(newItem);
+                targetLane.appendChild(newItem);
             } else {
-                console.log(`[DOWNLOADS] Appending new item for ${download.id}`);
-                downloadsContainer.appendChild(newItem);
+                targetLane.appendChild(newItem);
             }
         }
     });
-    
+
     // Remove items that are no longer in filtered list
     existingItems.forEach(item => {
         const id = item.getAttribute('data-id');
@@ -469,13 +513,31 @@ function displayDownloads() {
             item.remove();
         }
     });
-    
-    // Reorder items to match sorted order
-    const sortedItems = filteredDownloads.map(download => 
-        downloadsContainer.querySelector(`[data-id="${download.id}"]`)
-    ).filter(item => item !== null);
-    
-    sortedItems.forEach(item => downloadsContainer.appendChild(item));
+
+    // Reorder items within each lane to match sorted order
+    const reorderLane = (laneEl, predicate) => {
+        const laneItems = filteredDownloads
+            .filter(predicate)
+            .map(d => downloadsContainer.querySelector(`[data-id="${d.id}"]`))
+            .filter(Boolean);
+        laneItems.forEach(item => laneEl.appendChild(item));
+    };
+
+    reorderLane(laneQueued, d => d.status === 'queued' || d.status === 'retrying' || !d.status);
+    reorderLane(laneActive, d => ['starting', 'downloading', 'processing'].includes(d.status));
+    reorderLane(laneCompleted, d => d.status === 'completed');
+    reorderLane(laneIssues, d => d.status === 'failed' || d.status === 'cancelled');
+
+    // Update lane counts
+    const setCount = (id, count) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = String(count);
+    };
+
+    setCount('kanbanCountQueued', filteredDownloads.filter(d => d.status === 'queued' || d.status === 'retrying' || !d.status).length);
+    setCount('kanbanCountActive', filteredDownloads.filter(d => ['starting', 'downloading', 'processing'].includes(d.status)).length);
+    setCount('kanbanCountCompleted', filteredDownloads.filter(d => d.status === 'completed').length);
+    setCount('kanbanCountIssues', filteredDownloads.filter(d => d.status === 'failed' || d.status === 'cancelled').length);
 }
 
 // Create download item element (unified for all statuses)
@@ -948,41 +1010,6 @@ function showNotification(message, type = 'success') {
             }
         }, 300);
     }, 3000);
-}
-
-// Update status bar
-function updateStatusBar() {
-    let statusBar = document.getElementById('statusBar');
-    
-    if (!statusBar) {
-        statusBar = document.createElement('div');
-        statusBar.id = 'statusBar';
-        statusBar.className = 'status-bar';
-        document.body.appendChild(statusBar);
-    }
-    
-    if (!currentState) return;
-    
-    const downloadSpeed = currentState.totalSpeeds?.download || '0 B/s';
-    const uploadSpeed = currentState.totalSpeeds?.upload || '0 B/s';
-    
-    statusBar.innerHTML = `
-        <div class="status-left">
-            <span>Active: ${currentState.stats.active}/${currentState.maxConcurrentDownloads || 3}</span>
-            <span class="status-separator">|</span>
-            <span>Queued: ${currentState.stats.queued}</span>
-            <span class="status-separator">|</span>
-            <span>Completed: ${currentState.stats.completed}</span>
-        </div>
-        <div class="status-right">
-            <div class="speed-indicator">
-                <span class="download-speed">⬇ ${downloadSpeed}</span>
-            </div>
-            <div class="speed-indicator">
-                <span class="upload-speed">⬆ ${uploadSpeed}</span>
-            </div>
-        </div>
-    `;
 }
 
 // Clean up on page unload

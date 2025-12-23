@@ -430,26 +430,26 @@ function displayDependencyStatus() {
     // Add rows for each dependency
     for (const [name, info] of Object.entries(dependencyData)) {
         const row = document.createElement('tr');
-        row.style.borderBottom = '1px solid #2a2a2a';
+        row.style.borderBottom = '1px solid rgba(255, 255, 255, 0.08)';
         
         // Determine status
         let status = 'Up to date';
-        let statusColor = '#4CAF50';
+        let statusClass = 'dep-badge--ok';
         let showUpdateButton = false;
         
         if (!info.installed) {
             status = 'Not installed';
-            statusColor = '#ff4444';
+            statusClass = 'dep-badge--bad';
             showUpdateButton = true;
         } else if (info.currentVersion === 'Unknown') {
             status = 'Unknown version';
-            statusColor = '#ff9800';
+            statusClass = 'dep-badge--warn';
         } else if (info.latestVersion === 'Error') {
             status = 'Check failed';
-            statusColor = '#ff9800';
+            statusClass = 'dep-badge--warn';
         } else if (info.currentVersion !== info.latestVersion) {
             status = 'Update available';
-            statusColor = '#2196F3';
+            statusClass = 'dep-badge--info';
             showUpdateButton = true;
         }
         
@@ -457,7 +457,7 @@ function displayDependencyStatus() {
             <td style="padding: 12px; color: #e5e5e5; font-weight: 500;">${name}</td>
             <td style="padding: 12px; color: #999;">${info.currentVersion}</td>
             <td style="padding: 12px; color: #999;">${info.latestVersion}</td>
-            <td style="padding: 12px; color: ${statusColor}; font-weight: 500;">${status}</td>
+            <td style="padding: 12px;"><span class="dep-badge ${statusClass}">${status}</span></td>
             <td style="padding: 12px; text-align: center;">
                 ${showUpdateButton ? 
                     `<button class="browse-button" style="padding: 6px 16px; font-size: 14px;" 

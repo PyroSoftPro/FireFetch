@@ -7,14 +7,19 @@
     <link rel="icon" href="icon.ico" type="image/x-icon">
     <link rel="shortcut icon" href="icon.ico" type="image/x-icon">
     <link rel="stylesheet" href="styles.css">
+    <script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
 </head>
 <body>
     <div class="container">
         <div id="global-header"></div>
         <div class="content-wrapper">
-            <div class="input-section">
-                <input type="text" id="urlInput" placeholder="Enter video URL, magnet link, or torrent file URL..." />
-                <button id="fetchBtn" onclick="fetchVideoInfo()">Fetch</button>
+            <div class="ff-hero">
+                <div class="ff-hero-title"><span class="ff-fire">🔥</span> FireFetch</div>
+                <div class="ff-hero-subtitle">A modern, high-speed downloader with a Windows‑native feel. Paste a URL, pick quality, and watch the queue.</div>
+                <div class="ff-input-row input-section">
+                    <input type="text" id="urlInput" placeholder="Paste a video URL, magnet link, or torrent URL…" />
+                    <button id="fetchBtn" onclick="fetchVideoInfo()">Fetch</button>
+                </div>
             </div>
 
             <div id="loading" class="loading" style="display: none;">
@@ -23,16 +28,19 @@
             </div>
 
             <div id="videoInfo" class="video-info" style="display: none;">
-                <div class="video-preview">
-                    <img id="thumbnail" src="" alt="Video thumbnail">
-                    <div class="video-details">
-                        <h2 id="title"></h2>
-                        <p><strong>Uploader:</strong> <span id="uploader"></span></p>
-                        <p><strong>Duration:</strong> <span id="duration"></span></p>
-                        <p><strong>Site:</strong> <span id="site"></span></p>
-                        <p id="description" class="description"></p>
+                <details open>
+                    <summary style="cursor:pointer; font-weight:700; color: rgba(255,255,255,0.86); margin-bottom: 14px;">Preview</summary>
+                    <div class="video-preview">
+                        <img id="thumbnail" src="" alt="Video thumbnail">
+                        <div class="video-details">
+                            <h2 id="title"></h2>
+                            <p><strong>Uploader:</strong> <span id="uploader"></span></p>
+                            <p><strong>Duration:</strong> <span id="duration"></span></p>
+                            <p><strong>Site:</strong> <span id="site"></span></p>
+                            <p id="description" class="description"></p>
+                        </div>
                     </div>
-                </div>
+                </details>
 
                 <div class="quality-section">
                     <h3>Select Quality</h3>

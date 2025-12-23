@@ -7,169 +7,7 @@
     <link rel="icon" href="icon.ico" type="image/x-icon">
     <link rel="shortcut icon" href="icon.ico" type="image/x-icon">
     <link rel="stylesheet" href="styles.css">
-    <style>
-        .config-section {
-            background: #1a1a1a;
-            border-radius: 12px;
-            padding: 30px;
-            margin-bottom: 30px;
-            border: 1px solid #2a2a2a;
-        }
-        
-        .config-group {
-            margin-bottom: 30px;
-        }
-        
-        .config-group:last-child {
-            margin-bottom: 0;
-        }
-        
-        .config-group h3 {
-            color: #ffffff;
-            font-size: 1.2rem;
-            margin-bottom: 20px;
-            padding-bottom: 10px;
-            border-bottom: 1px solid #2a2a2a;
-        }
-        
-        .config-item {
-            margin-bottom: 20px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-        
-        .config-label {
-            flex: 1;
-            color: #e5e5e5;
-            font-size: 16px;
-        }
-        
-        .config-description {
-            color: #999;
-            font-size: 14px;
-            margin-top: 5px;
-        }
-        
-        .config-control {
-            margin-left: 20px;
-        }
-        
-        input[type="text"],
-        input[type="number"],
-        select {
-            background-color: #0f0f0f;
-            border: 1px solid #2a2a2a;
-            color: #e5e5e5;
-            padding: 10px 15px;
-            border-radius: 8px;
-            font-size: 16px;
-            width: 300px;
-        }
-        
-        input[type="checkbox"] {
-            width: 20px;
-            height: 20px;
-            cursor: pointer;
-        }
-        
-        .toggle-switch {
-            position: relative;
-            width: 60px;
-            height: 30px;
-            background-color: #2a2a2a;
-            border-radius: 15px;
-            cursor: pointer;
-            transition: background-color 0.3s;
-        }
-        
-        .toggle-switch.active {
-            background-color: #ff4444;
-        }
-        
-        .toggle-slider {
-            position: absolute;
-            top: 3px;
-            left: 3px;
-            width: 24px;
-            height: 24px;
-            background-color: #e5e5e5;
-            border-radius: 50%;
-            transition: transform 0.3s;
-        }
-        
-        .toggle-switch.active .toggle-slider {
-            transform: translateX(30px);
-        }
-        
-        .save-button {
-            background-color: #ff4444;
-            color: white;
-            border: none;
-            padding: 14px 40px;
-            font-size: 16px;
-            font-weight: 600;
-            border-radius: 8px;
-            cursor: pointer;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            transition: all 0.2s;
-            display: block;
-            margin: 40px auto 0;
-        }
-        
-        .save-button:hover {
-            background-color: #cc0000;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(255, 68, 68, 0.3);
-        }
-        
-        .success-message {
-            background-color: #2ecc71;
-            color: white;
-            padding: 15px 30px;
-            border-radius: 8px;
-            text-align: center;
-            margin: 20px auto;
-            display: none;
-            max-width: 500px;
-        }
-        
-        .browse-button {
-            background-color: #404040;
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            font-size: 16px;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: background-color 0.2s;
-        }
-        
-        .browse-button:hover {
-            background-color: #505050;
-        }
-        
-        .reset-button {
-            background-color: #666666;
-            color: white;
-            border: none;
-            padding: 14px 40px;
-            font-size: 16px;
-            font-weight: 600;
-            border-radius: 8px;
-            cursor: pointer;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            transition: all 0.2s;
-        }
-        
-        .reset-button:hover {
-            background-color: #555555;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-        }
-    </style>
+    <script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
 </head>
 <body>
     <div class="container">
@@ -180,243 +18,249 @@
         </div>
         
         <div class="config-section">
-            <div class="config-group">
-                <h3>Download Settings</h3>
-                
-                <div class="config-item">
-                    <div>
-                        <div class="config-label">Download Directory</div>
-                        <div class="config-description">Where to save downloaded videos</div>
-                    </div>
-                    <div class="config-control" style="display: flex; gap: 10px;">
-                        <input type="text" id="downloadDir" value="downloads" readonly style="flex: 1;" />
-                        <button class="browse-button" onclick="selectDirectory()">Browse</button>
-                    </div>
-                </div>
-                
-                <div class="config-item">
-                    <div>
-                        <div class="config-label">Default Quality</div>
-                        <div class="config-description">Preferred quality when available</div>
-                    </div>
-                    <div class="config-control">
-                        <select id="defaultQuality">
-                            <option value="best">Best Quality</option>
-                            <option value="1080">1080p</option>
-                            <option value="720">720p</option>
-                            <option value="480">480p</option>
-                            <option value="360">360p</option>
-                        </select>
-                    </div>
-                </div>
-                
-                <div class="config-item">
-                    <div>
-                        <div class="config-label">Output Format</div>
-                        <div class="config-description">Container format for merged videos</div>
-                    </div>
-                    <div class="config-control">
-                        <select id="outputFormat">
-                            <option value="mp4">MP4</option>
-                            <option value="mkv">MKV</option>
-                            <option value="webm">WebM</option>
-                        </select>
-                    </div>
-                </div>
-                
-                <div class="config-item">
-                    <div>
-                        <div class="config-label">Save Metadata</div>
-                        <div class="config-description">Save video information as JSON</div>
-                    </div>
-                    <div class="config-control">
-                        <div class="toggle-switch active" id="saveMetadata">
-                            <div class="toggle-slider"></div>
+            <details class="settings-panel" open>
+                <summary class="settings-summary">Download Settings</summary>
+                <div class="settings-body">
+                    <div class="config-item">
+                        <div>
+                            <div class="config-label">Download Directory</div>
+                            <div class="config-description">Where to save downloaded videos</div>
+                        </div>
+                        <div class="config-control" style="display: flex; gap: 10px;">
+                            <input type="text" id="downloadDir" value="downloads" readonly style="flex: 1;" />
+                            <button class="browse-button" onclick="selectDirectory()">Browse</button>
                         </div>
                     </div>
-                </div>
-            </div>
-            
-            <div class="config-group">
-                <h3>Download Acceleration</h3>
-                
-                <div class="config-item">
-                    <div>
-                        <div class="config-label">Concurrent Connections</div>
-                        <div class="config-description">Number of parallel download connections</div>
-                    </div>
-                    <div class="config-control">
-                        <input type="number" id="connections" value="16" min="1" max="32" />
-                    </div>
-                </div>
-                
-                <div class="config-item">
-                    <div>
-                        <div class="config-label">Segments per Connection</div>
-                        <div class="config-description">Split each connection into segments</div>
-                    </div>
-                    <div class="config-control">
-                        <input type="number" id="segments" value="16" min="1" max="32" />
-                    </div>
-                </div>
-                
-                <div class="config-item">
-                    <div>
-                        <div class="config-label">Segment Size</div>
-                        <div class="config-description">Size of each download segment</div>
-                    </div>
-                    <div class="config-control">
-                        <select id="segmentSize">
-                            <option value="512K">512KB</option>
-                            <option value="1M" selected>1MB</option>
-                            <option value="2M">2MB</option>
-                            <option value="5M">5MB</option>
-                        </select>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="config-group">
-                <h3>Download Queue</h3>
-                
-                <div class="config-item">
-                    <div>
-                        <div class="config-label">Enable Queue</div>
-                        <div class="config-description">Enable download queue system</div>
-                    </div>
-                    <div class="config-control">
-                        <div class="toggle-switch active" id="queueEnabled">
-                            <div class="toggle-slider"></div>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="config-item">
-                    <div>
-                        <div class="config-label">Max Concurrent Downloads</div>
-                        <div class="config-description">Maximum simultaneous downloads</div>
-                    </div>
-                    <div class="config-control">
-                        <input type="number" id="maxConcurrentDownloads" value="3" min="1" max="10" />
-                    </div>
-                </div>
-                
-                <div class="config-item">
-                    <div>
-                        <div class="config-label">Retry Attempts</div>
-                        <div class="config-description">Number of retry attempts for failed downloads</div>
-                    </div>
-                    <div class="config-control">
-                        <input type="number" id="retryAttempts" value="2" min="0" max="5" />
-                    </div>
-                </div>
-                
-                <div class="config-item">
-                    <div>
-                        <div class="config-label">Retry Delay (seconds)</div>
-                        <div class="config-description">Delay between retry attempts</div>
-                    </div>
-                    <div class="config-control">
-                        <input type="number" id="retryDelay" value="5" min="1" max="60" />
-                    </div>
-                </div>
-            </div>
-            
-            <div class="config-group">
-                <h3>Interface Settings</h3>
-                
-                <div class="config-item">
-                    <div>
-                        <div class="config-label">Auto-play Videos</div>
-                        <div class="config-description">Automatically play videos when opened</div>
-                    </div>
-                    <div class="config-control">
-                        <div class="toggle-switch active" id="autoPlay">
-                            <div class="toggle-slider"></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="config-group">
-                <h3>Authentication</h3>
-                
-                <div class="config-item">
-                    <div>
-                        <div class="config-label">Cookie File</div>
-                        <div class="config-description">Browser cookies for authentication (Netscape format)</div>
-                    </div>
-                    <div class="config-control" style="display: flex; gap: 10px;">
-                        <input type="file" id="cookieFile" accept=".txt" style="display: none;" onchange="handleCookieFile(this)" />
-                        <input type="text" id="cookieFileName" placeholder="No cookie file uploaded" readonly style="flex: 1;" />
-                        <button class="browse-button" onclick="document.getElementById('cookieFile').click()">Upload</button>
-                        <button class="browse-button" id="clearCookies" onclick="clearCookieFile()" style="display: none; background-color: #cc0000;">Clear</button>
-                    </div>
-                </div>
-                
-                <div class="config-item">
-                    <div>
-                        <div class="config-label">How to export cookies</div>
-                        <div class="config-description">
-                            1. Install "Get cookies.txt LOCALLY" browser extension<br>
-                            2. Visit the video site and login if required<br>
-                            3. Click the extension icon and select "Export cookies.txt"<br>
-                            4. Upload the saved file here
-                        </div>
-                    </div>
-                    <div class="config-control">
-                        <a href="https://github.com/get-cookies-txt/get-cookies-txt" target="_blank" style="color: #ff4444;">Learn more →</a>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="config-group">
-                <h3>Dependency Manager</h3>
-                
-                <div class="config-item">
-                    <div>
-                        <div class="config-label">Manage External Tools</div>
-                        <div class="config-description">Keep aria2c, ffmpeg, and yt-dlp up to date</div>
-                    </div>
-                    <div class="config-control">
-                        <button class="browse-button" onclick="checkDependencies()">Check for Updates</button>
-                    </div>
-                </div>
-                
-                <div id="dependencyStatus" style="display: none; margin-top: 20px;">
-                    <table style="width: 100%; border-collapse: collapse;">
-                        <thead>
-                            <tr style="border-bottom: 1px solid #2a2a2a;">
-                                <th style="text-align: left; padding: 10px; color: #999;">Tool</th>
-                                <th style="text-align: left; padding: 10px; color: #999;">Current Version</th>
-                                <th style="text-align: left; padding: 10px; color: #999;">Latest Version</th>
-                                <th style="text-align: left; padding: 10px; color: #999;">Status</th>
-                                <th style="text-align: center; padding: 10px; color: #999;">Action</th>
-                            </tr>
-                        </thead>
-                        <tbody id="dependencyTableBody">
-                            <!-- Rows will be added dynamically -->
-                        </tbody>
-                    </table>
                     
-                    <div style="margin-top: 20px; display: flex; gap: 10px;">
-                        <button class="browse-button" onclick="updateAllDependencies()">Update All</button>
-                        <button class="browse-button" onclick="deleteBackups()">Delete Backups</button>
-                        <button class="browse-button" onclick="refreshDependencies()">Refresh</button>
+                    <div class="config-item">
+                        <div>
+                            <div class="config-label">Default Quality</div>
+                            <div class="config-description">Preferred quality when available</div>
+                        </div>
+                        <div class="config-control">
+                            <select id="defaultQuality">
+                                <option value="best">Best Quality</option>
+                                <option value="1080">1080p</option>
+                                <option value="720">720p</option>
+                                <option value="480">480p</option>
+                                <option value="360">360p</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="config-item">
+                        <div>
+                            <div class="config-label">Output Format</div>
+                            <div class="config-description">Container format for merged videos</div>
+                        </div>
+                        <div class="config-control">
+                            <select id="outputFormat">
+                                <option value="mp4">MP4</option>
+                                <option value="mkv">MKV</option>
+                                <option value="webm">WebM</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="config-item">
+                        <div>
+                            <div class="config-label">Save Metadata</div>
+                            <div class="config-description">Save video information as JSON</div>
+                        </div>
+                        <div class="config-control">
+                            <div class="toggle-switch active" id="saveMetadata">
+                                <div class="toggle-slider"></div>
+                            </div>
+                        </div>
                     </div>
                 </div>
-                
-                <div id="dependencyProgress" style="display: none; margin-top: 20px;">
-                    <div style="background: #1a1a1a; border-radius: 8px; padding: 20px;">
-                        <div style="color: #e5e5e5; margin-bottom: 10px;">
-                            <span id="progressText">Checking dependencies...</span>
+            </details>
+
+            <details class="settings-panel" open>
+                <summary class="settings-summary">Download Acceleration</summary>
+                <div class="settings-body">
+                    <div class="config-item">
+                        <div>
+                            <div class="config-label">Concurrent Connections</div>
+                            <div class="config-description">Number of parallel download connections</div>
                         </div>
-                        <div style="background: #2a2a2a; border-radius: 4px; height: 10px; overflow: hidden;">
-                            <div id="progressBar" style="background: #ff4444; width: 0%; height: 100%; transition: width 0.3s;"></div>
+                        <div class="config-control">
+                            <input type="number" id="connections" value="16" min="1" max="32" />
+                        </div>
+                    </div>
+                    
+                    <div class="config-item">
+                        <div>
+                            <div class="config-label">Segments per Connection</div>
+                            <div class="config-description">Split each connection into segments</div>
+                        </div>
+                        <div class="config-control">
+                            <input type="number" id="segments" value="16" min="1" max="32" />
+                        </div>
+                    </div>
+                    
+                    <div class="config-item">
+                        <div>
+                            <div class="config-label">Segment Size</div>
+                            <div class="config-description">Size of each download segment</div>
+                        </div>
+                        <div class="config-control">
+                            <select id="segmentSize">
+                                <option value="512K">512KB</option>
+                                <option value="1M" selected>1MB</option>
+                                <option value="2M">2MB</option>
+                                <option value="5M">5MB</option>
+                            </select>
                         </div>
                     </div>
                 </div>
-            </div>
+            </details>
+
+            <details class="settings-panel" open>
+                <summary class="settings-summary">Download Queue</summary>
+                <div class="settings-body">
+                    <div class="config-item">
+                        <div>
+                            <div class="config-label">Enable Queue</div>
+                            <div class="config-description">Enable download queue system</div>
+                        </div>
+                        <div class="config-control">
+                            <div class="toggle-switch active" id="queueEnabled">
+                                <div class="toggle-slider"></div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="config-item">
+                        <div>
+                            <div class="config-label">Max Concurrent Downloads</div>
+                            <div class="config-description">Maximum simultaneous downloads</div>
+                        </div>
+                        <div class="config-control">
+                            <input type="number" id="maxConcurrentDownloads" value="3" min="1" max="10" />
+                        </div>
+                    </div>
+                    
+                    <div class="config-item">
+                        <div>
+                            <div class="config-label">Retry Attempts</div>
+                            <div class="config-description">Number of retry attempts for failed downloads</div>
+                        </div>
+                        <div class="config-control">
+                            <input type="number" id="retryAttempts" value="2" min="0" max="5" />
+                        </div>
+                    </div>
+                    
+                    <div class="config-item">
+                        <div>
+                            <div class="config-label">Retry Delay (seconds)</div>
+                            <div class="config-description">Delay between retry attempts</div>
+                        </div>
+                        <div class="config-control">
+                            <input type="number" id="retryDelay" value="5" min="1" max="60" />
+                        </div>
+                    </div>
+                </div>
+            </details>
+
+            <details class="settings-panel" open>
+                <summary class="settings-summary">Interface</summary>
+                <div class="settings-body">
+                    <div class="config-item">
+                        <div>
+                            <div class="config-label">Auto-play Videos</div>
+                            <div class="config-description">Automatically play videos when opened</div>
+                        </div>
+                        <div class="config-control">
+                            <div class="toggle-switch active" id="autoPlay">
+                                <div class="toggle-slider"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </details>
+            
+            <details class="settings-panel" open>
+                <summary class="settings-summary">Authentication</summary>
+                <div class="settings-body">
+                    <div class="config-item">
+                        <div>
+                            <div class="config-label">Cookie File</div>
+                            <div class="config-description">Browser cookies for authentication (Netscape format)</div>
+                        </div>
+                        <div class="config-control" style="display: flex; gap: 10px;">
+                            <input type="file" id="cookieFile" accept=".txt" style="display: none;" onchange="handleCookieFile(this)" />
+                            <input type="text" id="cookieFileName" placeholder="No cookie file uploaded" readonly style="flex: 1;" />
+                            <button class="browse-button" onclick="document.getElementById('cookieFile').click()">Upload</button>
+                            <button class="browse-button" id="clearCookies" onclick="clearCookieFile()" style="display: none;">Clear</button>
+                        </div>
+                    </div>
+                    
+                    <div class="config-item">
+                        <div>
+                            <div class="config-label">How to export cookies</div>
+                            <div class="config-description">
+                                1. Install "Get cookies.txt LOCALLY" browser extension<br>
+                                2. Visit the video site and login if required<br>
+                                3. Click the extension icon and select "Export cookies.txt"<br>
+                                4. Upload the saved file here
+                            </div>
+                        </div>
+                        <div class="config-control">
+                            <a href="https://github.com/get-cookies-txt/get-cookies-txt" target="_blank">Learn more →</a>
+                        </div>
+                    </div>
+                </div>
+            </details>
+            
+            <details class="settings-panel" open>
+                <summary class="settings-summary">Dependency Manager</summary>
+                <div class="settings-body">
+                    <div class="config-item">
+                        <div>
+                            <div class="config-label">Manage External Tools</div>
+                            <div class="config-description">Keep aria2c, ffmpeg, and yt-dlp up to date</div>
+                        </div>
+                        <div class="config-control">
+                            <button class="browse-button" onclick="checkDependencies()">Check for Updates</button>
+                        </div>
+                    </div>
+                    
+                    <div id="dependencyStatus" style="display: none; margin-top: 20px;">
+                        <table style="width: 100%; border-collapse: collapse;">
+                            <thead>
+                                <tr style="border-bottom: 1px solid rgba(255,255,255,0.10);">
+                                    <th style="text-align: left; padding: 10px; color: rgba(255,255,255,0.55);">Tool</th>
+                                    <th style="text-align: left; padding: 10px; color: rgba(255,255,255,0.55);">Current Version</th>
+                                    <th style="text-align: left; padding: 10px; color: rgba(255,255,255,0.55);">Latest Version</th>
+                                    <th style="text-align: left; padding: 10px; color: rgba(255,255,255,0.55);">Status</th>
+                                    <th style="text-align: center; padding: 10px; color: rgba(255,255,255,0.55);">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="dependencyTableBody">
+                                <!-- Rows will be added dynamically -->
+                            </tbody>
+                        </table>
+                        
+                        <div style="margin-top: 16px; display: flex; gap: 10px; flex-wrap: wrap;">
+                            <button class="browse-button" onclick="updateAllDependencies()">Update All</button>
+                            <button class="browse-button" onclick="deleteBackups()">Delete Backups</button>
+                            <button class="browse-button" onclick="refreshDependencies()">Refresh</button>
+                        </div>
+                    </div>
+                    
+                    <div id="dependencyProgress" style="display: none; margin-top: 20px;">
+                        <div class="ff-card ff-card-pad">
+                            <div style="color: rgba(255,255,255,0.85); margin-bottom: 10px;">
+                                <span id="progressText">Checking dependencies...</span>
+                            </div>
+                            <div style="background: rgba(0,0,0,0.20); border: 1px solid rgba(255,255,255,0.10); border-radius: 999px; height: 10px; overflow: hidden;">
+                                <div id="progressBar" style="background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 100%); width: 0%; height: 100%; transition: width 0.3s;"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </details>
         </div>
         
         <div style="display: flex; gap: 20px; justify-content: center; margin-top: 40px;">

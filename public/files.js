@@ -60,6 +60,14 @@ function displayFiles() {
     noFiles.style.display = 'none';
     
     filesGrid.innerHTML = filteredFiles.map(file => createFileCard(file)).join('');
+
+    try {
+        if (window.lucide && typeof window.lucide.createIcons === 'function') {
+            window.lucide.createIcons();
+        }
+    } catch {
+        // ignore icon failures
+    }
 }
 
 // Create a file card HTML
@@ -70,20 +78,20 @@ function createFileCard(file) {
     const date = new Date(file.downloadDate || file.download_date || Date.now()).toLocaleDateString();
     
     return `
-        <div class="file-card" onclick="showFileModal('${file.filename}')">
-            <div class="file-card-actions">
-                <button class="card-action-button" onclick="event.stopPropagation(); openFile('${file.filename}')" title="Open File">
-                    🔗
+        <div class="ff-card ff-card-pad file-card" onclick="showFileModal('${file.filename}')">
+            <div class="media-actions">
+                <button class="icon-btn" type="button" onclick="event.stopPropagation(); openFile('${file.filename}')" title="Open">
+                    <i data-lucide="external-link"></i>
                 </button>
-                <button class="card-action-button delete-button" onclick="event.stopPropagation(); deleteFile('${file.filename}')" title="Delete File">
-                    🗑️
+                <button class="icon-btn danger" type="button" onclick="event.stopPropagation(); deleteFile('${file.filename}')" title="Delete">
+                    <i data-lucide="trash-2"></i>
                 </button>
             </div>
-            <div class="file-card-header">
+            <div style="display:flex; gap: 12px; align-items: center;">
                 <div class="file-icon">${icon}</div>
-                <div class="file-info">
-                    <div class="file-name">${truncateText(file.title || file.filename, 40)}</div>
-                    <div class="file-meta">${type} • ${size} • ${date}</div>
+                <div style="min-width:0">
+                    <div class="media-title">${truncateText(file.title || file.filename, 42)}</div>
+                    <div class="media-sub"><span>${type}</span><span>• ${size}</span><span>• ${date}</span></div>
                 </div>
             </div>
         </div>

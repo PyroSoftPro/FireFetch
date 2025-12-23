@@ -7,32 +7,76 @@
     <link rel="icon" href="icon.ico" type="image/x-icon">
     <link rel="shortcut icon" href="icon.ico" type="image/x-icon">
     <link rel="stylesheet" href="styles.css">
+    <script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
 </head>
 <body>
     <div class="container">
         <div id="global-header"></div>
         <!-- Queue controls will be dynamically inserted here -->
         
-        <h2>Downloads</h2>
-        <div class="download-filters">
-            <select id="statusFilter">
-                <option value="">All Downloads</option>
-                <option value="queued">Queued</option>
-                <option value="downloading">Active</option>
-                <option value="completed">Completed</option>
-                <option value="failed">Failed</option>
-                <option value="cancelled">Cancelled</option>
-            </select>
-            <select id="sortBy">
-                <option value="date">Sort by Date</option>
-                <option value="status">Sort by Status</option>
-                <option value="title">Sort by Title</option>
-                <option value="type">Sort by Type</option>
-            </select>
+        <div class="ff-hero">
+            <div class="ff-hero-title"><span class="ff-fire">🔥</span> Queue</div>
+            <div class="ff-hero-subtitle">Kanban-style downloads with live progress, filtering, and quick controls.</div>
+            <div style="margin-top: 14px; display: flex; gap: 12px; flex-wrap: wrap; align-items: center;">
+                <div class="pill-group" id="queueStatusPills" aria-label="Status filters">
+                    <button class="pill active" type="button" data-status="">All</button>
+                    <button class="pill" type="button" data-status="downloading">Active</button>
+                    <button class="pill" type="button" data-status="queued">Queued</button>
+                    <button class="pill" type="button" data-status="completed">Completed</button>
+                    <button class="pill" type="button" data-status="failed">Failed</button>
+                    <button class="pill" type="button" data-status="cancelled">Cancelled</button>
+                </div>
+
+                <!-- Keep selects for compatibility with existing JS (hidden; pills drive them) -->
+                <select id="statusFilter" style="display:none">
+                    <option value="">All Downloads</option>
+                    <option value="queued">Queued</option>
+                    <option value="downloading">Active</option>
+                    <option value="completed">Completed</option>
+                    <option value="failed">Failed</option>
+                    <option value="cancelled">Cancelled</option>
+                </select>
+                <select id="sortBy" style="display:none">
+                    <option value="date">Sort by Date</option>
+                    <option value="status">Sort by Status</option>
+                    <option value="title">Sort by Title</option>
+                    <option value="type">Sort by Type</option>
+                </select>
+            </div>
         </div>
         
-        <div id="allDownloads" class="downloads-section">
-            <!-- All downloads will be populated here -->
+        <div id="allDownloads" class="kanban">
+            <div class="ff-card kanban-col">
+                <div class="kanban-col-header">
+                    <div class="kanban-col-title">Queued</div>
+                    <div class="kanban-col-count" id="kanbanCountQueued">0</div>
+                </div>
+                <div class="kanban-cards" id="kanbanQueued"></div>
+            </div>
+
+            <div class="ff-card kanban-col">
+                <div class="kanban-col-header">
+                    <div class="kanban-col-title">Active</div>
+                    <div class="kanban-col-count" id="kanbanCountActive">0</div>
+                </div>
+                <div class="kanban-cards" id="kanbanActive"></div>
+            </div>
+
+            <div class="ff-card kanban-col">
+                <div class="kanban-col-header">
+                    <div class="kanban-col-title">Done</div>
+                    <div class="kanban-col-count" id="kanbanCountCompleted">0</div>
+                </div>
+                <div class="kanban-cards" id="kanbanCompleted"></div>
+            </div>
+
+            <div class="ff-card kanban-col">
+                <div class="kanban-col-header">
+                    <div class="kanban-col-title">Issues</div>
+                    <div class="kanban-col-count" id="kanbanCountIssues">0</div>
+                </div>
+                <div class="kanban-cards" id="kanbanIssues"></div>
+            </div>
         </div>
 
         <div id="noDownloads" class="no-downloads">

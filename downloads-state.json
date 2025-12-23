@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "savedAt": "2025-12-23T18:25:52.914Z",
-  "nextId": 35,
+  "savedAt": "2025-12-23T19:34:16.056Z",
+  "nextId": 36,
   "queue": [
     {
       "id": "download_33_1766503397225",
@@ -46,9 +46,53 @@
       "leechers": null,
       "peers": 0,
       "ratio": null
+    },
+    {
+      "id": "download_35_1766518325170",
+      "url": "https://www.youtube.com/watch?v=ZCkky2WxfCk",
+      "format": "best",
+      "title": "How to Fix Battlefield 6 Crashes on Launch – Top 3 Solutions",
+      "status": "completed",
+      "progress": 100,
+      "speed": null,
+      "eta": null,
+      "size": "2.70MiB",
+      "error": null,
+      "retryCount": 0,
+      "addedAt": "2025-12-23T19:32:05.170Z",
+      "startedAt": "2025-12-23T19:32:05.171Z",
+      "completedAt": "2025-12-23T19:32:13.678Z",
+      "downloadType": "video",
+      "uploadSpeed": null,
+      "seeds": null,
+      "leechers": null,
+      "peers": 0,
+      "ratio": null
     }
   ],
   "completedDownloads": [
+    {
+      "id": "download_35_1766518325170",
+      "url": "https://www.youtube.com/watch?v=ZCkky2WxfCk",
+      "format": "best",
+      "title": "How to Fix Battlefield 6 Crashes on Launch – Top 3 Solutions",
+      "status": "completed",
+      "progress": 100,
+      "speed": null,
+      "eta": null,
+      "size": "2.70MiB",
+      "error": null,
+      "retryCount": 0,
+      "addedAt": "2025-12-23T19:32:05.170Z",
+      "startedAt": "2025-12-23T19:32:05.171Z",
+      "completedAt": "2025-12-23T19:32:13.678Z",
+      "downloadType": "video",
+      "uploadSpeed": null,
+      "seeds": null,
+      "leechers": null,
+      "peers": 0,
+      "ratio": null
+    },
     {
       "id": "download_34_1766503451250",
       "url": "https://www.youtube.com/watch?v=Tf51CBPXIlM",
