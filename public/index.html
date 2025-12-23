@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FireFetch - Video Downloader</title>
+    <link rel="icon" href="icon.ico" type="image/x-icon">
+    <link rel="shortcut icon" href="icon.ico" type="image/x-icon">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <div id="global-header"></div>
+        <div class="content-wrapper">
+            <div class="input-section">
+                <input type="text" id="urlInput" placeholder="Enter video URL, magnet link, or torrent file URL..." />
+                <button id="fetchBtn" onclick="fetchVideoInfo()">Fetch</button>
+            </div>
+
+            <div id="loading" class="loading" style="display: none;">
+                <div class="spinner"></div>
+                <p>Fetching video information...</p>
+            </div>
+
+            <div id="videoInfo" class="video-info" style="display: none;">
+                <div class="video-preview">
+                    <img id="thumbnail" src="" alt="Video thumbnail">
+                    <div class="video-details">
+                        <h2 id="title"></h2>
+                        <p><strong>Uploader:</strong> <span id="uploader"></span></p>
+                        <p><strong>Duration:</strong> <span id="duration"></span></p>
+                        <p><strong>Site:</strong> <span id="site"></span></p>
+                        <p id="description" class="description"></p>
+                    </div>
+                </div>
+
+                <div class="quality-section">
+                    <h3>Select Quality</h3>
+                    <select id="qualitySelect">
+                        <option value="">Select quality...</option>
+                    </select>
+                    <button id="downloadBtn" onclick="downloadVideo()">Download</button>
+                </div>
+            </div>
+
+            <div id="fileInfo" class="file-info" style="display: none;">
+                <div class="file-preview">
+                    <div class="file-icon">
+                        📄
+                    </div>
+                    <div class="file-details">
+                        <h2 id="fileName"></h2>
+                        <div class="file-metadata">
+                            <p><strong>File Type:</strong> <span id="fileType"></span></p>
+                            <p><strong>Size:</strong> <span id="fileSize"></span></p>
+                            <p><strong>Source:</strong> <span id="fileSource"></span></p>
+                            <p id="fileDescription" class="description"></p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="download-section">
+                    <h3>Ready to Download</h3>
+                    <p class="file-download-note">This is a direct file download. No quality selection needed.</p>
+                    <button id="fileDownloadBtn" onclick="downloadFile()">Download File</button>
+                </div>
+            </div>
+
+            <div id="downloadProgress" class="download-progress" style="display: none;">
+                <h3>Download Progress</h3>
+                <div id="progressText" class="progress-text"></div>
+                <div class="progress-bar">
+                    <div id="progressBar" class="progress-fill"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="global-footer"></div>
+    
+    <!-- Discord Link -->
+    <a href="https://discord.mikethetech.com/" target="_blank" class="discord-link">
+        <div class="speech-bubble">
+            <span class="speech-text-default">Who's that mascot!?</span>
+            <span class="speech-text-hover">It's <span class="axl-name">Axl</span>! Click him to
+visit our Discord!</span>
+        </div>
+        <img src="axel2.png" alt="Join our Discord" title="Join our Discord">
+    </a>
+    
+    <script src="js/global-components.js"></script>
+    <script src="script.js"></script>
+    <script src="status-bar.js"></script>
+</body>
+</html>

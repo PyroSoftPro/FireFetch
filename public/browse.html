@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FireFetch - Browse Videos</title>
+    <link rel="icon" href="icon.ico" type="image/x-icon">
+    <link rel="shortcut icon" href="icon.ico" type="image/x-icon">
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        .video-player {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.95);
+            z-index: 1000;
+        }
+        
+        .video-player-content {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .video-player video {
+            max-width: 90%;
+            max-height: 90%;
+            border-radius: 8px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+        }
+        
+        .close-player {
+            position: absolute;
+            top: 30px;
+            right: 30px;
+            background: #ff4444;
+            border: none;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 28px;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+        
+        .close-player:hover {
+            background: #cc0000;
+            transform: scale(1.1);
+        }
+        
+        .video-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.95);
+            z-index: 900;
+            overflow-y: auto;
+        }
+        
+        .modal-content {
+            width: 80%;
+            max-width: 1000px;
+            margin: 50px auto;
+            background: #1a1a1a;
+            border-radius: 12px;
+            padding: 30px;
+            position: relative;
+        }
+        
+        .modal-close {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: #ff4444;
+            border: none;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 24px;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+        
+        .modal-close:hover {
+            background: #cc0000;
+        }
+        
+        .modal-video-info {
+            display: flex;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+        
+        .modal-thumbnail {
+            width: 400px;
+            height: 225px;
+            object-fit: cover;
+            border-radius: 8px;
+        }
+        
+        .modal-details {
+            flex: 1;
+        }
+        
+        .modal-title {
+            font-size: 24px;
+            font-weight: 600;
+            color: #ffffff;
+            margin-bottom: 15px;
+        }
+        
+        .modal-meta {
+            color: #b4b4b4;
+            margin-bottom: 20px;
+        }
+        
+        .modal-meta-item {
+            margin-bottom: 8px;
+        }
+        
+        .modal-description {
+            color: #e5e5e5;
+            line-height: 1.6;
+            margin-bottom: 30px;
+        }
+        
+        .modal-actions {
+            display: flex;
+            gap: 15px;
+        }
+        
+        .action-button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+        
+        .play-button {
+            background: #ff4444;
+            color: white;
+        }
+        
+        .play-button:hover {
+            background: #cc0000;
+        }
+        
+        .info-button {
+            background: #404040;
+            color: white;
+        }
+        
+        .info-button:hover {
+            background: #505050;
+        }
+        
+        .video-card-actions {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            display: flex;
+            gap: 8px;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+        
+        .video-card:hover .video-card-actions {
+            opacity: 1;
+        }
+        
+        .card-action-button {
+            background: rgba(0,0,0,0.8);
+            border: none;
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            cursor: pointer;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+        
+        .card-action-button:hover {
+            background: #ff4444;
+        }
+        
+        .card-action-button.delete-button:hover {
+            background: #cc0000;
+        }
+        
+        .filter-controls {
+            margin: 20px 0;
+            background: #1a1a1a;
+            padding: 20px;
+            border-radius: 8px;
+        }
+        
+        .filter-group {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .filter-group label {
+            color: #ff6b6b;
+            font-weight: 600;
+        }
+        
+        .filter-group select {
+            background: #2a2a2a;
+            color: white;
+            border: 1px solid #ff6b6b;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .filter-group select:hover {
+            border-color: #ff4444;
+            background: #333;
+        }
+        
+        .filter-group select:focus {
+            outline: none;
+            border-color: #ff4444;
+            box-shadow: 0 0 0 2px rgba(255, 68, 68, 0.2);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div id="global-header"></div>
+        
+        <div class="filter-controls">
+            <div class="filter-group">
+                <label for="siteFilter">Filter by Site:</label>
+                <select id="siteFilter" onchange="filterVideos()">
+                    <option value="">All Sites</option>
+                </select>
+                
+                <label for="sortBy">Sort by:</label>
+                <select id="sortBy" onchange="sortVideos()">
+                    <option value="date">Date</option>
+                    <option value="title">Title</option>
+                    <option value="site">Site</option>
+                    <option value="duration">Duration</option>
+                </select>
+            </div>
+        </div>
+        
+        <div id="videoGrid" class="video-grid">
+            <!-- Videos will be populated here -->
+        </div>
+        
+        <div id="noVideos" class="no-videos" style="display: none;">
+            <h2>No videos downloaded yet</h2>
+            <p>Download some videos to see them here!</p>
+        </div>
+    </div>
+    
+    <div id="videoPlayer" class="video-player">
+        <div class="video-player-content">
+            <button class="close-player" onclick="closePlayer()">×</button>
+            <video id="playerVideo" controls></video>
+        </div>
+    </div>
+    
+    <div id="videoModal" class="video-modal">
+        <div class="modal-content">
+            <button class="modal-close" onclick="closeModal()">×</button>
+            <div class="modal-video-info">
+                <img id="modalThumbnail" class="modal-thumbnail" src="" alt="Video thumbnail">
+                <div class="modal-details">
+                    <h2 id="modalTitle" class="modal-title"></h2>
+                    <div class="modal-meta">
+                        <div class="modal-meta-item"><strong>Site:</strong> <span id="modalSite"></span></div>
+                        <div class="modal-meta-item"><strong>Uploader:</strong> <span id="modalUploader"></span></div>
+                        <div class="modal-meta-item"><strong>Duration:</strong> <span id="modalDuration"></span></div>
+                        <div class="modal-meta-item"><strong>Filename:</strong> <span id="modalFilename"></span></div>
+                    </div>
+                    <div class="modal-actions">
+                        <button class="action-button play-button" onclick="playFromModal()">Play Video</button>
+                        <button class="action-button info-button" onclick="showFullMetadata()">Show Full Metadata</button>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-description">
+                <h3>Description</h3>
+                <p id="modalDescription"></p>
+            </div>
+            <div id="fullMetadata" style="display: none;">
+                <h3>Full Metadata</h3>
+                <pre id="metadataContent" style="background: #0f0f0f; padding: 15px; border-radius: 8px; overflow-x: auto; color: #e5e5e5;"></pre>
+            </div>
+        </div>
+    </div>
+    
+    <div id="global-footer"></div>
+    
+    <!-- Discord Link -->
+    <a href="https://discord.mikethetech.com/" target="_blank" class="discord-link">
+        <div class="speech-bubble">
+            <span class="speech-text-default">Who's that mascot!?</span>
+            <span class="speech-text-hover">It's <span class="axl-name">Axl</span>! Click him to
+visit our Discord!</span>
+        </div>
+        <img src="axel2.png" alt="Join our Discord" title="Join our Discord">
+    </a>
+    
+    <script src="js/global-components.js"></script>
+    <script src="browse.js"></script>
+    <script src="status-bar.js"></script>
+</body>
+</html>

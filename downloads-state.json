@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "savedAt": "2025-08-10T10:33:09.716Z",
+  "nextId": 32,
+  "queue": [],
+  "completedDownloads": [],
+  "settings": {
+    "queueEnabled": true,
+    "maxRetries": 2
+  }
+}

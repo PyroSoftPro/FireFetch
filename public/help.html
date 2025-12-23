@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FireFetch - Help & Usage Guide</title>
+    <link rel="icon" href="icon.ico" type="image/x-icon">
+    <link rel="shortcut icon" href="icon.ico" type="image/x-icon">
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        .help-section {
+            background: #1a1a1a;
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 30px;
+            border: 1px solid #2a2a2a;
+        }
+        
+        .help-section h2 {
+            color: #ff4444;
+            font-size: 1.5rem;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #ff4444;
+            padding-bottom: 10px;
+        }
+        
+        .help-section h3 {
+            color: #ffffff;
+            font-size: 1.2rem;
+            margin: 25px 0 15px 0;
+        }
+        
+        .help-section h4 {
+            color: #e5e5e5;
+            font-size: 1rem;
+            margin: 20px 0 10px 0;
+        }
+        
+        .help-section p, .help-section li {
+            color: #cccccc;
+            line-height: 1.6;
+            margin-bottom: 10px;
+        }
+        
+        .help-section ul, .help-section ol {
+            margin-left: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .help-section li {
+            margin-bottom: 8px;
+        }
+        
+        .code-block {
+            background: #0f0f0f;
+            border: 1px solid #2a2a2a;
+            border-radius: 6px;
+            padding: 15px;
+            margin: 15px 0;
+            color: #e5e5e5;
+            font-family: 'Courier New', monospace;
+            overflow-x: auto;
+        }
+        
+        .highlight {
+            background: #333333;
+            color: #ff4444;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+        
+        .feature-card {
+            background: #0f0f0f;
+            border: 1px solid #2a2a2a;
+            border-radius: 8px;
+            padding: 20px;
+        }
+        
+        .feature-card h4 {
+            color: #ff4444;
+            margin-top: 0;
+            margin-bottom: 10px;
+        }
+        
+        .warning-box {
+            background: #2a1a00;
+            border: 1px solid #ff8800;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 15px 0;
+            color: #ffcc88;
+        }
+        
+        .tip-box {
+            background: #002a1a;
+            border: 1px solid #00aa44;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 15px 0;
+            color: #88ffcc;
+        }
+        
+        .supported-sites {
+            background: #0f0f0f;
+            border: 1px solid #2a2a2a;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 15px 0;
+        }
+        
+        .site-category {
+            margin-bottom: 15px;
+        }
+        
+        .site-category h5 {
+            color: #ff4444;
+            margin-bottom: 8px;
+        }
+        
+        .site-list {
+            color: #cccccc;
+            margin-left: 15px;
+        }
+        
+        .file-types {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 15px 0;
+        }
+        
+        .file-type-category {
+            background: #0f0f0f;
+            border: 1px solid #2a2a2a;
+            border-radius: 6px;
+            padding: 15px;
+        }
+        
+        .file-type-category h5 {
+            color: #ff4444;
+            margin-bottom: 10px;
+            margin-top: 0;
+        }
+        
+        .extensions {
+            color: #aaaaaa;
+            font-size: 0.9rem;
+            line-height: 1.4;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div id="global-header"></div>
+        
+        <div class="help-section">
+            <h2>🔥 Welcome to FireFetch</h2>
+            <p>FireFetch is a powerful, universal downloader that can handle video downloads from 1000+ websites, direct file downloads, and torrent/magnet links. This guide will help you get the most out of the application.</p>
+        </div>
+
+        <div class="help-section">
+            <h2>🚀 Quick Start Guide</h2>
+            
+            <h3>Basic Download Process</h3>
+            <ol>
+                <li>Copy the URL of the video, file, or magnet link you want to download</li>
+                <li>Paste it into the URL input field on the main page</li>
+                <li>Click the <span class="highlight">Fetch</span> button</li>
+                <li>For videos: Select your preferred quality from the dropdown</li>
+                <li>Click <span class="highlight">Download</span> to start the download</li>
+                <li>Monitor progress in real-time</li>
+            </ol>
+
+            <div class="tip-box">
+                <strong>💡 Pro Tip:</strong> FireFetch automatically detects the type of content (video, direct file, or torrent) and uses the appropriate download method for optimal performance.
+            </div>
+        </div>
+
+        <div class="help-section">
+            <h2>📹 Supported Video Sites</h2>
+            <p>FireFetch supports <strong>1000+ video platforms</strong> through yt-dlp, including:</p>
+            
+            <div class="supported-sites">
+                <div class="site-category">
+                    <h5>Popular Video Platforms:</h5>
+                    <div class="site-list">YouTube, Vimeo, Dailymotion, Twitch, Facebook, Instagram, TikTok, Twitter, Reddit</div>
+                </div>
+                
+                <div class="site-category">
+                    <h5>Streaming Services:</h5>
+                    <div class="site-list">BBC iPlayer, CNN, ESPN, Fox News, NBC, CBS, ABC</div>
+                </div>
+                
+                <div class="site-category">
+                    <h5>Educational Platforms:</h5>
+                    <div class="site-list">Khan Academy, Coursera, edX, Udemy, YouTube Educational</div>
+                </div>
+                
+                <div class="site-category">
+                    <h5>International Sites:</h5>
+                    <div class="site-list">Bilibili, Niconico, Youku, VK, Rutube, and hundreds more</div>
+                </div>
+            </div>
+
+            <div class="tip-box">
+                <strong>🌍 Full Coverage:</strong> If a website has video content that can be downloaded, there's a good chance FireFetch can handle it. The application automatically attempts to process any URL you provide.
+            </div>
+        </div>
+
+        <div class="help-section">
+            <h2>📁 Supported File Types</h2>
+            <p>FireFetch can download virtually any file type directly from URLs:</p>
+            
+            <div class="file-types">
+                <div class="file-type-category">
+                    <h5>🎥 Video Files</h5>
+                    <div class="extensions">mp4, avi, mkv, mov, wmv, flv, webm, m4v, 3gp, mpeg, mpg, ts, vob, and more</div>
+                </div>
+                
+                <div class="file-type-category">
+                    <h5>🎵 Audio Files</h5>
+                    <div class="extensions">mp3, wav, flac, aac, ogg, wma, m4a, opus, aiff, and more</div>
+                </div>
+                
+                <div class="file-type-category">
+                    <h5>📄 Documents</h5>
+                    <div class="extensions">pdf, doc, docx, xls, xlsx, ppt, pptx, txt, md, csv, json, xml</div>
+                </div>
+                
+                <div class="file-type-category">
+                    <h5>🗜️ Archives</h5>
+                    <div class="extensions">zip, rar, 7z, tar, gz, bz2, xz</div>
+                </div>
+                
+                <div class="file-type-category">
+                    <h5>🖼️ Images</h5>
+                    <div class="extensions">jpg, jpeg, png, gif, bmp, tiff, svg, webp, ico</div>
+                </div>
+                
+                <div class="file-type-category">
+                    <h5>💾 Software</h5>
+                    <div class="extensions">exe, msi, dmg, deb, rpm, apk, and more</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="help-section">
+            <h2>🧲 Torrent & Magnet Support</h2>
+            
+            <h3>Supported Formats</h3>
+            <ul>
+                <li><strong>Magnet Links:</strong> Copy and paste magnet URLs starting with <code>magnet:</code></li>
+                <li><strong>Torrent Files:</strong> Direct links to .torrent files</li>
+            </ul>
+
+            <h3>Download Methods</h3>
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <h4>🔄 aria2c Engine (Recommended)</h4>
+                    <p>Downloads torrent content to files for permanent storage. Best for archiving and sharing.</p>
+                </div>
+            </div>
+
+            <div class="warning-box">
+                <strong>⚖️ Legal Notice:</strong> Only download torrents that you have the legal right to access. FireFetch does not endorse or facilitate piracy.
+            </div>
+        </div>
+
+        <div class="help-section">
+            <h2>⚙️ Quality & Format Options</h2>
+            
+            <h3>Video Quality Options</h3>
+            <ul>
+                <li><strong>Best Quality:</strong> Automatically selects the highest available quality</li>
+                <li><strong>1080p:</strong> Full HD resolution (if available)</li>
+                <li><strong>720p:</strong> HD resolution</li>
+                <li><strong>480p:</strong> Standard definition</li>
+                <li><strong>360p:</strong> Lower quality for faster downloads</li>
+            </ul>
+
+            <h3>Output Formats</h3>
+            <ul>
+                <li><strong>MP4 (Default):</strong> Universal compatibility, works everywhere</li>
+                <li><strong>MKV:</strong> High quality, supports multiple audio tracks and subtitles</li>
+                <li><strong>WebM:</strong> Web-optimized format, smaller file sizes</li>
+            </ul>
+        </div>
+
+        <div class="help-section">
+            <h2>🔐 Authentication & Private Content</h2>
+            
+            <h3>Cookie Authentication</h3>
+            <p>For downloading private, age-restricted, or premium content, you can upload browser cookies:</p>
+            
+            <ol>
+                <li>Install the "Get cookies.txt LOCALLY" browser extension</li>
+                <li>Visit the video site and log in to your account</li>
+                <li>Click the extension icon and export cookies as .txt file</li>
+                <li>Go to Settings → Authentication and upload the cookie file</li>
+            </ol>
+
+            <div class="tip-box">
+                <strong>🔒 Privacy:</strong> Cookie files are stored locally and never shared. They're only used to authenticate your downloads.
+            </div>
+        </div>
+
+        <div class="help-section">
+            <h2>🏎️ Performance Optimization</h2>
+            
+            <h3>Download Acceleration Settings</h3>
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <h4>Concurrent Connections</h4>
+                    <p>Number of parallel download connections (1-32). More connections = faster downloads for large files.</p>
+                </div>
+                
+                <div class="feature-card">
+                    <h4>Segments per Connection</h4>
+                    <p>Splits each connection into smaller segments (1-32). Helps with unreliable connections.</p>
+                </div>
+                
+                <div class="feature-card">
+                    <h4>Segment Size</h4>
+                    <p>Size of each download chunk (512KB - 5MB). Larger segments = less overhead.</p>
+                </div>
+            </div>
+
+            <div class="tip-box">
+                <strong>⚡ Optimization Tips:</strong> For very fast connections, increase concurrent connections. For slower/unstable connections, reduce connections but increase segments.
+            </div>
+        </div>
+
+        <div class="help-section">
+            <h2>📋 Download Queue Management</h2>
+            
+            <h3>Queue Features</h3>
+            <ul>
+                <li><strong>Multiple Downloads:</strong> Queue up to 10 downloads simultaneously</li>
+                <li><strong>Auto-start:</strong> Downloads begin automatically when added to queue</li>
+                <li><strong>Retry Logic:</strong> Failed downloads are automatically retried</li>
+                <li><strong>Progress Tracking:</strong> Monitor all downloads in real-time</li>
+            </ul>
+
+            <h3>Queue Settings</h3>
+            <ul>
+                <li><strong>Max Concurrent Downloads:</strong> How many downloads run simultaneously</li>
+                <li><strong>Retry Attempts:</strong> Number of times to retry failed downloads</li>
+                <li><strong>Retry Delay:</strong> Time to wait between retry attempts</li>
+            </ul>
+        </div>
+
+        <div class="help-section">
+            <h2>🗂️ File Management</h2>
+            
+            <h3>Downloaded Files</h3>
+            <ul>
+                <li>Access downloads through the <strong>Browse</strong> page</li>
+                <li>Play videos directly in the browser</li>
+                <li>View file information and metadata</li>
+                <li>Delete unwanted files</li>
+                <li>Open containing folder</li>
+            </ul>
+
+            <h3>Storage Location</h3>
+            <p>By default, files are saved to the <code>downloads/</code> folder next to the application. You can change this in Settings → Download Directory.</p>
+        </div>
+
+        <div class="help-section">
+            <h2>❗ Troubleshooting</h2>
+            
+            <h3>Common Issues & Solutions</h3>
+            
+            <h4>🚫 "Authentication Required" Error</h4>
+            <ul>
+                <li>The video requires login to access</li>
+                <li>Upload browser cookies in Settings → Authentication</li>
+                <li>Make sure you're logged in to the site in your browser</li>
+            </ul>
+
+            <h4>🔒 "DRM Protected Content" Error</h4>
+            <ul>
+                <li>The content is protected by digital rights management</li>
+                <li>This cannot be downloaded legally</li>
+                <li>Try finding alternative sources or official download options</li>
+            </ul>
+
+            <h4>⚠️ Download Fails or Stops</h4>
+            <ul>
+                <li>Check your internet connection</li>
+                <li>Try reducing concurrent connections in settings</li>
+                <li>The source file may no longer be available</li>
+                <li>Enable automatic retry in queue settings</li>
+            </ul>
+
+            <h4>🐌 Slow Download Speeds</h4>
+            <ul>
+                <li>Increase concurrent connections for faster internet</li>
+                <li>Check if the source server has rate limiting</li>
+                <li>Try downloading during off-peak hours</li>
+                <li>Consider using a different quality option</li>
+            </ul>
+        </div>
+
+        <div class="help-section">
+            <h2>🎛️ Keyboard Shortcuts</h2>
+            <ul>
+                <li><strong>Ctrl + V:</strong> Paste URL into input field</li>
+                <li><strong>Enter:</strong> Fetch video information</li>
+                <li><strong>Ctrl + D:</strong> Start download (when quality selected)</li>
+                <li><strong>F5:</strong> Refresh page</li>
+            </ul>
+        </div>
+
+        <div class="help-section">
+            <h2>🆘 Getting Help</h2>
+            <p>If you need additional support:</p>
+            <ul>
+                <li>Check the troubleshooting section above</li>
+                <li>Visit our Discord community for help and discussions</li>
+                <li>Report bugs or suggest features through our GitHub repository</li>
+                <li>Make sure you're using the latest version of FireFetch</li>
+            </ul>
+
+            <div class="tip-box">
+                <strong>💬 Community Support:</strong> Join our Discord community by clicking the mascot (Axl) in the bottom right corner of any page!
+            </div>
+        </div>
+    </div>
+    
+    <div id="global-footer"></div>
+    
+    <!-- Discord Link -->
+    <a href="https://discord.mikethetech.com/" target="_blank" class="discord-link">
+        <div class="speech-bubble">
+            <span class="speech-text-default">Who's that mascot!?</span>
+            <span class="speech-text-hover">It's <span class="axl-name">Axl</span>! Click him to
+visit our Discord!</span>
+        </div>
+        <img src="axel2.png" alt="Join our Discord" title="Join our Discord">
+    </a>
+    
+    <script src="js/global-components.js"></script>
+    <script src="status-bar.js"></script>
+</body>
+</html>

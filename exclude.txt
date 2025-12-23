@@ -1,0 +1,3 @@
+FireFetch.exe
+*.log
+*.tmp

@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Downloads - FireFetch</title>
+    <link rel="icon" href="icon.ico" type="image/x-icon">
+    <link rel="shortcut icon" href="icon.ico" type="image/x-icon">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <div id="global-header"></div>
+        <!-- Queue controls will be dynamically inserted here -->
+        
+        <h2>Downloads</h2>
+        <div class="download-filters">
+            <select id="statusFilter">
+                <option value="">All Downloads</option>
+                <option value="queued">Queued</option>
+                <option value="downloading">Active</option>
+                <option value="completed">Completed</option>
+                <option value="failed">Failed</option>
+                <option value="cancelled">Cancelled</option>
+            </select>
+            <select id="sortBy">
+                <option value="date">Sort by Date</option>
+                <option value="status">Sort by Status</option>
+                <option value="title">Sort by Title</option>
+                <option value="type">Sort by Type</option>
+            </select>
+        </div>
+        
+        <div id="allDownloads" class="downloads-section">
+            <!-- All downloads will be populated here -->
+        </div>
+
+        <div id="noDownloads" class="no-downloads">
+            <p>No downloads found</p>
+            <a href="index.html" class="btn btn-primary">Start a Download</a>
+        </div>
+    </div>
+
+    <div id="global-footer"></div>
+
+    <!-- Discord Link -->
+    <a href="https://discord.mikethetech.com/" target="_blank" class="discord-link">
+        <div class="speech-bubble">
+            <span class="speech-text-default">Who's that mascot!?</span>
+            <span class="speech-text-hover">It's <span class="axl-name">Axl</span>! Click him to
+visit our Discord!</span>
+        </div>
+        <img src="axel2.png" alt="Join our Discord" title="Join our Discord">
+    </a>
+
+    <script src="js/global-components.js"></script>
+    <script src="downloads.js"></script>
+    <script src="status-bar.js"></script>
+</body>
+</html>
