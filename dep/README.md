@@ -11,3 +11,4 @@ At runtime/build time FireFetch expects these files to exist here:
 You can obtain/update them from inside the app via **Settings → Dependencies** (it downloads upstream releases into this folder).
 
 
+

@@ -266,7 +266,7 @@ Interface becomes unresponsive during download
 ```
 
 **Solution:**
-1. Enable "Show Progress" setting for feedback
+1. Check the Downloads page for live progress and retry status
 2. Check for blocking operations in main thread
 3. Verify SSE (Server-Sent Events) are working
 4. Monitor network activity

@@ -276,25 +276,6 @@
                 </div>
             </div>
             
-            <div class="config-group" style="display: none;">
-                <h3>Torrent Settings</h3>
-                
-                <div class="config-item">
-                    <div>
-                        <div class="config-label">Torrent Engine</div>
-                        <div class="config-description">Choose torrent/magnet download method:<br>
-                        <span style="color: #999; font-size: 12px;">• Peerflix: Stream while downloading (for watching immediately)<br>
-                        • aria2c: Download to file first (for permanent storage)</span></div>
-                    </div>
-                    <div class="config-control">
-                        <select id="torrentEngine">
-                            <option value="webtorrent">Peerflix (Stream torrents)</option>
-                            <option value="aria2c">aria2c (Download to file)</option>
-                        </select>
-                    </div>
-                </div>
-            </div>
-            
             <div class="config-group">
                 <h3>Download Queue</h3>
                 
@@ -317,18 +298,6 @@
                     </div>
                     <div class="config-control">
                         <input type="number" id="maxConcurrentDownloads" value="3" min="1" max="10" />
-                    </div>
-                </div>
-                
-                <div class="config-item">
-                    <div>
-                        <div class="config-label">Auto-start Downloads</div>
-                        <div class="config-description">Automatically start queued downloads</div>
-                    </div>
-                    <div class="config-control">
-                        <div class="toggle-switch active" id="autoStart">
-                            <div class="toggle-slider"></div>
-                        </div>
                     </div>
                 </div>
                 
@@ -363,18 +332,6 @@
                     </div>
                     <div class="config-control">
                         <div class="toggle-switch active" id="autoPlay">
-                            <div class="toggle-slider"></div>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="config-item">
-                    <div>
-                        <div class="config-label">Show Progress Details</div>
-                        <div class="config-description">Display detailed download progress</div>
-                    </div>
-                    <div class="config-control">
-                        <div class="toggle-switch active" id="showProgress">
                             <div class="toggle-slider"></div>
                         </div>
                     </div>

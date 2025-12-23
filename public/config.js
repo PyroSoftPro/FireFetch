@@ -8,16 +8,12 @@ const defaultSettings = {
     segments: 16,
     segmentSize: '1M',
     autoPlay: true,
-    showProgress: true,
     cookieFile: null,
     // Queue settings
     maxConcurrentDownloads: 3,
     queueEnabled: true,
-    autoStart: true,
     retryAttempts: 2,
-    retryDelay: 5000,
-    // Torrent settings
-    torrentEngine: 'aria2c'
+    retryDelay: 5000
 };
 
 function showDRMError(message = 'This content is protected by DRM (digital-rights management) software. We can\'t legally bypass this.') {
@@ -112,20 +108,31 @@ function showFetchError(message) {
     }, 10000);
 }
 
-// Load settings from localStorage
-function loadSettings() {
+// Load settings (prefer server, fallback to localStorage)
+async function loadSettings() {
+    let localSettings = null;
     const savedSettings = localStorage.getItem('firefetch-settings');
-    let settings = defaultSettings;
     if (savedSettings) {
         try {
-            // Merge over defaults so missing keys don't break the UI
-            settings = { ...defaultSettings, ...JSON.parse(savedSettings) };
+            localSettings = JSON.parse(savedSettings);
         } catch (err) {
             console.warn('[SETTINGS] Invalid settings in localStorage. Resetting to defaults.', err.message);
             localStorage.removeItem('firefetch-settings');
-            settings = defaultSettings;
         }
     }
+
+    let serverSettings = null;
+    try {
+        const response = await fetch('/api/settings');
+        if (response.ok) {
+            serverSettings = await response.json();
+        }
+    } catch (err) {
+        console.warn('[SETTINGS] Failed to load settings from server. Falling back to local defaults.', err.message);
+    }
+
+    // Server is source-of-truth; localStorage is a fallback (and used by other pages)
+    const settings = { ...defaultSettings, ...(localSettings || {}), ...(serverSettings || {}) };
     
     // Apply settings to form
     document.getElementById('downloadDir').value = settings.downloadDir;
@@ -135,9 +142,6 @@ function loadSettings() {
     document.getElementById('segments').value = settings.segments;
     document.getElementById('segmentSize').value = settings.segmentSize;
     
-    // Torrent settings
-    document.getElementById('torrentEngine').value = settings.torrentEngine || defaultSettings.torrentEngine;
-    
     // Queue settings
     document.getElementById('maxConcurrentDownloads').value = settings.maxConcurrentDownloads || 3;
     document.getElementById('retryAttempts').value = settings.retryAttempts || 2;
@@ -146,12 +150,17 @@ function loadSettings() {
     // Set toggle switches
     setToggleSwitch('saveMetadata', settings.saveMetadata);
     setToggleSwitch('autoPlay', settings.autoPlay);
-    setToggleSwitch('showProgress', settings.showProgress);
     setToggleSwitch('queueEnabled', settings.queueEnabled !== false);
-    setToggleSwitch('autoStart', settings.autoStart !== false);
 
     // Check cookie file status
     checkCookieFileStatus();
+
+    // Keep localStorage in sync so other pages (browse/search/home) get current values
+    try {
+        localStorage.setItem('firefetch-settings', JSON.stringify(settings));
+    } catch (err) {
+        // ignore storage failures
+    }
 }
 
 // Save settings to localStorage and server
@@ -165,13 +174,9 @@ async function saveSettings() {
         segments: parseInt(document.getElementById('segments').value),
         segmentSize: document.getElementById('segmentSize').value,
         autoPlay: getToggleSwitch('autoPlay'),
-        showProgress: getToggleSwitch('showProgress'),
-        // Torrent settings
-        torrentEngine: document.getElementById('torrentEngine').value,
         // Queue settings
         maxConcurrentDownloads: parseInt(document.getElementById('maxConcurrentDownloads').value),
         queueEnabled: getToggleSwitch('queueEnabled'),
-        autoStart: getToggleSwitch('autoStart'),
         retryAttempts: parseInt(document.getElementById('retryAttempts').value),
         retryDelay: parseInt(document.getElementById('retryDelay').value) * 1000 // Convert to milliseconds
     };

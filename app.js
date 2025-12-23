@@ -237,12 +237,10 @@ let settings = {
     segments: 16,
     segmentSize: '1M',
     autoPlay: false,
-    showProgress: true,
     cookieFile: null,
     // Queue settings
     maxConcurrentDownloads: 3,
     queueEnabled: true,
-    autoStart: true,
     retryAttempts: 2,
     retryDelay: 5000,
     // Torrent settings
@@ -4337,6 +4335,15 @@ function createServer() {
             if (newSettings.downloadDir) {
                 await ensureDownloadsDir();
             }
+
+            // Keep the runtime queue state in sync with settings changes
+            if (typeof newSettings.queueEnabled === 'boolean' && downloadManager) {
+                if (newSettings.queueEnabled) {
+                    downloadManager.resumeQueue();
+                } else {
+                    downloadManager.pauseQueue();
+                }
+            }
             
             res.json({ success: true });
         } catch (err) {
@@ -4498,7 +4505,7 @@ function createServer() {
         try {
             // Reset to default settings
             settings = {
-                downloadDir: 'downloads',
+                downloadDir: downloadsDir,
                 defaultQuality: 'best',
                 outputFormat: 'mp4',
                 saveMetadata: true,
@@ -4506,15 +4513,26 @@ function createServer() {
                 segments: 16,
                 segmentSize: '1M',
                 autoPlay: false,
-                showProgress: true,
-                cookieFile: null
+                cookieFile: null,
+                // Queue settings
+                maxConcurrentDownloads: 3,
+                queueEnabled: true,
+                retryAttempts: 2,
+                retryDelay: 5000,
+                // Torrent settings
+                torrentEngine: 'webtorrent'
             };
             
-            // Delete settings file
-            try {
-                await fs.unlink(getSettingsPath());
-            } catch (err) {
-                // File might not exist, that's okay
+            // Persist default settings and ensure dirs exist
+            await fs.writeFile(getSettingsPath(), JSON.stringify(settings, null, 2));
+            await ensureDownloadsDir();
+
+            // Keep runtime queue state in sync with defaults
+            if (downloadManager) {
+                downloadManager.queueEnabled = true;
+                downloadManager.processQueue();
+                downloadManager.broadcastUpdate();
+                downloadManager.autoSaveState();
             }
             
             res.json({ success: true });
