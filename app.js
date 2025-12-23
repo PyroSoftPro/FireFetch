@@ -981,13 +981,14 @@ class DownloadManager extends EventEmitter {
     }
 
     // Execute video download using yt-dlp
-    executeVideoDownload(download, resolve, reject, freshStart = false) {
+    executeVideoDownload(download, resolve, reject, freshStart = false, http403Workaround = false) {
         logger.info('YT-DLP', `Starting video download for ${download.id}`, {
             url: download.url,
             format: download.format,
             downloadId: download.id,
             freshStart: freshStart,
-            retryCount: download.retryCount || 0
+            retryCount: download.retryCount || 0,
+            http403Workaround
         });
         
         let formatString = download.format || 'best';
@@ -1017,8 +1018,35 @@ class DownloadManager extends EventEmitter {
             '--progress',
             '--console-title',
             '--verbose',
-            '--extractor-args', 'youtube:formats=missing_pot' // Handle missing PO tokens gracefully
+            // extractor args appended below (may vary based on retry profile)
         ];
+
+        // Optional 403 workaround: retry once with browser-like headers/UA
+        if (http403Workaround) {
+            const chromeUA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36';
+            args.push('--user-agent', chromeUA);
+            args.push('--add-header', 'Accept-Language: en-US,en;q=0.9');
+
+            try {
+                const u = new URL(download.url);
+                const origin = `${u.protocol}//${u.host}`;
+                args.push('--add-header', `Referer: ${origin}/`);
+                args.push('--add-header', `Origin: ${origin}`);
+            } catch {
+                // ignore URL parse failures
+            }
+
+            // Be a bit more persistent on flaky/blocked hosts
+            args.push('--retries', '5');
+            args.push('--fragment-retries', '5');
+            args.push('--extractor-retries', '2');
+        }
+
+        // Handle missing PO tokens gracefully; on 403 retry, prefer android client (often less brittle)
+        const extractorArgs = http403Workaround
+            ? 'youtube:formats=missing_pot,player_client=android'
+            : 'youtube:formats=missing_pot';
+        args.push('--extractor-args', extractorArgs);
         
         // Only add continue option if not a fresh start and no previous failures
         if (!freshStart && (!download.error || !download.error.includes('no such option'))) {
@@ -1227,7 +1255,34 @@ class DownloadManager extends EventEmitter {
                     download.stderrOutput = '';
                     
                     // Retry with fresh start (no continue option)
-                    this.executeVideoDownload(download, resolve, reject, true);
+                    this.executeVideoDownload(download, resolve, reject, true, http403Workaround);
+                    return;
+                }
+
+                // Retry once on HTTP 403 with browser-like headers/UA
+                const fullErrorText = `${errorMessage}\n${download.stderrOutput || ''}`;
+                const is403 = fullErrorText.includes('HTTP Error 403') || fullErrorText.includes('403: Forbidden') || fullErrorText.includes(' 403 ') || fullErrorText.includes('403 Forbidden');
+                if (is403 && !download.http403Attempted) {
+                    download.http403Attempted = true;
+                    download.error = null;
+                    download.stderrOutput = '';
+
+                    logger.info('YT-DLP', `${download.id} retrying once due to HTTP 403`, {
+                        downloadId: download.id,
+                        url: download.url
+                    });
+
+                    // Force a fresh start for the 403 retry to avoid partial resume weirdness
+                    this.executeVideoDownload(download, resolve, reject, true, true);
+                    return;
+                }
+
+                // If still 403, replace noisy traceback with an actionable message
+                if (is403) {
+                    const friendly = 'HTTP 403: Forbidden. The site blocked the download. Try updating yt-dlp (Settings → Dependencies) or providing cookies (Settings → Cookies).';
+                    download.error = friendly;
+                    this.handleDownloadError(download, friendly);
+                    reject(new Error(friendly));
                     return;
                 }
                 
