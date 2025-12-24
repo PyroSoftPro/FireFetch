@@ -515,25 +515,14 @@ async function streamVideo(index) {
     const video = searchResults[index];
     
     try {
-        const response = await fetch('/api/stream-url', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ url: video.webpage_url || video.url })
-        });
+        const url = video.webpage_url || video.url;
+        if (!url) throw new Error('No video URL available');
         
-        if (!response.ok) {
-            throw new Error('Failed to get stream URL');
-        }
-        
-        const data = await response.json();
-        
-        if (data.streamUrl) {
-            playVideoStream(data.streamUrl, video.title);
-        } else {
-            throw new Error('No stream URL available');
-        }
+        // Stream through our backend so we can handle DASH/HLS/adaptive formats via ffmpeg,
+        // avoid CORS, and present a single browser-playable MP4 stream.
+        const streamEndpoint = `/api/stream?url=${encodeURIComponent(url)}`;
+        console.log('[STREAM] Starting stream via backend:', streamEndpoint);
+        playVideoStream(streamEndpoint, video.title);
         
     } catch (error) {
         console.error('Stream error:', error);
@@ -546,7 +535,68 @@ function playVideoStream(streamUrl, title) {
     const player = document.getElementById('videoPlayer');
     const playerVideo = document.getElementById('playerVideo');
     
-    playerVideo.src = streamUrl;
+    // Defensive: yt-dlp can sometimes return multiple URLs separated by newlines.
+    const cleanedUrl = String(streamUrl || '')
+        .split(/\r?\n/)
+        .map((s) => s.trim())
+        .filter(Boolean)[0] || '';
+    
+    // Attach one-time error diagnostics so a blank player becomes actionable.
+    if (!playerVideo.dataset.ffStreamHandlers) {
+        playerVideo.dataset.ffStreamHandlers = '1';
+        
+        playerVideo.addEventListener('error', () => {
+            // Ignore errors triggered by deliberate teardown (close button / overlay click)
+            if (playerVideo.dataset.ffClosing === '1') return;
+            if (player.style.display === 'none') return;
+            if (!playerVideo.src && !playerVideo.currentSrc) return;
+            
+            const mediaErr = playerVideo.error;
+            const code = mediaErr?.code;
+            const codeText = ({
+                1: 'MEDIA_ERR_ABORTED',
+                2: 'MEDIA_ERR_NETWORK',
+                3: 'MEDIA_ERR_DECODE',
+                4: 'MEDIA_ERR_SRC_NOT_SUPPORTED'
+            })[code] || 'UNKNOWN';
+            
+            console.error('[STREAM] <video> error:', {
+                code,
+                codeText,
+                src: playerVideo.currentSrc || playerVideo.src,
+                networkState: playerVideo.networkState,
+                readyState: playerVideo.readyState
+            });
+            
+            // Browsers can emit transient errors during source changes, range probing, or retry logic.
+            // Only surface an error toast if the stream still isn't playable shortly after the event.
+            if (code === 1) return; // aborted
+            
+            const srcAtError = playerVideo.currentSrc || playerVideo.src;
+            setTimeout(() => {
+                const srcNow = playerVideo.currentSrc || playerVideo.src;
+                if (srcNow !== srcAtError) return; // source changed; ignore this error
+                
+                const hasBuffered = (() => {
+                    try {
+                        return playerVideo.buffered && playerVideo.buffered.length > 0 && playerVideo.buffered.end(0) > 0;
+                    } catch {
+                        return false;
+                    }
+                })();
+                
+                // If we have data or playback has started, suppress the toast.
+                if (playerVideo.readyState >= 2 || hasBuffered || playerVideo.currentTime > 0) return;
+                
+                showFetchError(`Stream failed to load (${codeText}). Try downloading instead.`);
+            }, 800);
+        });
+    }
+    
+    playerVideo.pause();
+    playerVideo.preload = 'auto';
+    playerVideo.src = cleanedUrl;
+    playerVideo.load();
     player.style.display = 'block';
     
     // Check autoplay setting
@@ -561,7 +611,9 @@ function playVideoStream(streamUrl, title) {
             settings = null;
         }
         if (settings?.autoPlay) {
-            playerVideo.play();
+            playerVideo.play().catch((err) => {
+                console.warn('[STREAM] Autoplay failed:', err?.message || err);
+            });
         }
     }
 }
@@ -571,9 +623,20 @@ function closePlayer() {
     const player = document.getElementById('videoPlayer');
     const playerVideo = document.getElementById('playerVideo');
     
+    // Mark closing so the <video> error handler doesn't show a toast while we tear down.
+    playerVideo.dataset.ffClosing = '1';
     playerVideo.pause();
     playerVideo.src = '';
+    try {
+        // Reset the element state (helps avoid late error events)
+        playerVideo.load();
+    } catch {
+        // ignore
+    }
     player.style.display = 'none';
+    setTimeout(() => {
+        delete playerVideo.dataset.ffClosing;
+    }, 500);
 }
 
 // Close download modal

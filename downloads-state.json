@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "savedAt": "2025-12-23T19:50:56.815Z",
-  "nextId": 36,
+  "savedAt": "2025-12-24T21:27:49.408Z",
+  "nextId": 37,
   "queue": [
     {
       "id": "download_33_1766503397225",
@@ -68,9 +68,53 @@
       "leechers": null,
       "peers": 0,
       "ratio": null
+    },
+    {
+      "id": "download_36_1766611650484",
+      "url": "https://www.youtube.com/watch?v=uU5vVT_Cp7c",
+      "format": "313",
+      "title": "Sleep Token - Alkaline",
+      "status": "completed",
+      "progress": 100,
+      "speed": null,
+      "eta": null,
+      "size": "3.26MiB",
+      "error": null,
+      "retryCount": 0,
+      "addedAt": "2025-12-24T21:27:30.484Z",
+      "startedAt": "2025-12-24T21:27:30.486Z",
+      "completedAt": "2025-12-24T21:27:48.404Z",
+      "downloadType": "video",
+      "uploadSpeed": null,
+      "seeds": null,
+      "leechers": null,
+      "peers": 0,
+      "ratio": null
     }
   ],
   "completedDownloads": [
+    {
+      "id": "download_36_1766611650484",
+      "url": "https://www.youtube.com/watch?v=uU5vVT_Cp7c",
+      "format": "313",
+      "title": "Sleep Token - Alkaline",
+      "status": "completed",
+      "progress": 100,
+      "speed": null,
+      "eta": null,
+      "size": "3.26MiB",
+      "error": null,
+      "retryCount": 0,
+      "addedAt": "2025-12-24T21:27:30.484Z",
+      "startedAt": "2025-12-24T21:27:30.486Z",
+      "completedAt": "2025-12-24T21:27:48.404Z",
+      "downloadType": "video",
+      "uploadSpeed": null,
+      "seeds": null,
+      "leechers": null,
+      "peers": 0,
+      "ratio": null
+    },
     {
       "id": "download_35_1766518325170",
       "url": "https://www.youtube.com/watch?v=ZCkky2WxfCk",

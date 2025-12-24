@@ -4204,73 +4204,335 @@ function createServer() {
             logger.log('INFO', 'STREAM', `Getting stream URL for: ${url}`);
             
             const ytDlpPath = path.join(depPath, 'yt-dlp.exe');
-            const streamArgs = [
-                '--get-url',
-                '--format', 'best[height<=720]', // Limit to 720p for streaming performance
-                '--no-warnings',
-                url
+            
+            const buildArgs = (format) => {
+                const args = [
+                    '--get-url',
+                    '--no-playlist',
+                    '--no-warnings',
+                    '--format', format,
+                    url
+                ];
+                
+                // Add cookies if available
+                if (settings.cookieFile && fsSync.existsSync(settings.cookieFile)) {
+                    args.push('--cookies', settings.cookieFile);
+                }
+                
+                return args;
+            };
+            
+            const parseUrls = (stdout) => stdout
+                .split(/\r?\n/)
+                .map((line) => line.trim())
+                .filter(Boolean);
+            
+            const looksLikeManifestUrl = (u) => {
+                const s = String(u || '').toLowerCase();
+                return s.includes('/api/manifest/') || s.includes('.m3u8');
+            };
+            
+            const runYtDlpGetUrl = (format) => new Promise((resolve) => {
+                const args = buildArgs(format);
+                logger.log('DEBUG', 'STREAM', `Running yt-dlp with args: ${args.join(' ')}`);
+                
+                const proc = spawn(ytDlpPath, args);
+                let stdout = '';
+                let stderr = '';
+                
+                proc.stdout.on('data', (data) => { stdout += data.toString(); });
+                proc.stderr.on('data', (data) => { stderr += data.toString(); });
+                proc.on('close', (code) => resolve({ code, stdout, stderr, args }));
+            });
+            
+            // Prefer progressive (video+audio) formats that HTML5 <video> can play directly.
+            // YouTube often provides high quality via DASH/HLS manifests which Chromium <video> will not play.
+            const formatCandidates = [
+                // Strong preference: mp4 with both audio+video, capped to 720p.
+                'best[height<=720][vcodec!=none][acodec!=none][ext=mp4]',
+                // Fallback: any container with both audio+video, capped to 720p.
+                'best[height<=720][vcodec!=none][acodec!=none]',
+                // Last resort: any format with both audio+video.
+                'best[vcodec!=none][acodec!=none]',
+                // Absolute fallback (may be a manifest on some sites).
+                'best[height<=720]'
             ];
             
-            // Add cookies if available
-            if (settings.cookieFile && fsSync.existsSync(settings.cookieFile)) {
-                streamArgs.push('--cookies', settings.cookieFile);
+            let lastErrorOutput = '';
+            
+            for (const format of formatCandidates) {
+                // eslint-disable-next-line no-await-in-loop
+                const { code, stdout, stderr } = await runYtDlpGetUrl(format);
+                
+                if (code !== 0) {
+                    lastErrorOutput = (stderr || stdout || lastErrorOutput || '');
+                    
+                    // Check for common errors
+                    if (lastErrorOutput.includes('requires authentication') || lastErrorOutput.includes('Sign in to confirm')) {
+                        return res.status(401).json({
+                            error: 'Authentication required',
+                            message: 'This video requires authentication. Please upload cookies in settings.'
+                        });
+                    }
+                    
+                    if (lastErrorOutput.includes('DRM') || lastErrorOutput.includes('protected')) {
+                        return res.status(403).json({
+                            error: 'DRM protected content',
+                            message: 'This content is protected and cannot be streamed.'
+                        });
+                    }
+                    
+                    // Try next candidate
+                    continue;
+                }
+                
+                const urls = parseUrls(stdout);
+                
+                if (!urls.length) {
+                    continue;
+                }
+                
+                // If yt-dlp returns multiple URLs (common when a format resolves to multiple resources),
+                // choose the first one that doesn't look like an HLS/DASH manifest.
+                const chosen = urls.find((u) => !looksLikeManifestUrl(u)) || urls[0];
+                
+                if (!chosen) {
+                    continue;
+                }
+                
+                if (urls.length > 1) {
+                    logger.log('WARN', 'STREAM', `yt-dlp returned ${urls.length} URLs; using one for playback.`);
+                }
+                
+                if (looksLikeManifestUrl(chosen)) {
+                    // Try next candidate format in hopes of getting a direct media URL.
+                    continue;
+                }
+                
+                logger.log('INFO', 'STREAM', 'Stream URL obtained successfully');
+                return res.json({ streamUrl: chosen, streamUrls: urls.length > 1 ? urls : undefined });
             }
             
-            logger.log('DEBUG', 'STREAM', `Running yt-dlp with args: ${streamArgs.join(' ')}`);
-            
-            const ytDlpProcess = spawn(ytDlpPath, streamArgs);
-            let output = '';
-            let errorOutput = '';
-            
-            ytDlpProcess.stdout.on('data', (data) => {
-                output += data.toString();
-            });
-            
-            ytDlpProcess.stderr.on('data', (data) => {
-                errorOutput += data.toString();
-            });
-            
-            ytDlpProcess.on('close', (code) => {
-                try {
-                    if (code !== 0) {
-                        logger.log('ERROR', 'STREAM', `yt-dlp stream URL failed with code ${code}`, errorOutput);
-                        
-                        // Check for common errors
-                        if (errorOutput.includes('requires authentication') || errorOutput.includes('Sign in to confirm')) {
-                            return res.status(401).json({ 
-                                error: 'Authentication required', 
-                                message: 'This video requires authentication. Please upload cookies in settings.' 
-                            });
-                        }
-                        
-                        if (errorOutput.includes('DRM') || errorOutput.includes('protected')) {
-                            return res.status(403).json({ 
-                                error: 'DRM protected content', 
-                                message: 'This content is protected and cannot be streamed.' 
-                            });
-                        }
-                        
-                        return res.status(500).json({ error: 'Failed to get stream URL', details: errorOutput });
-                    }
-                    
-                    const streamUrl = output.trim();
-                    
-                    if (!streamUrl) {
-                        return res.status(404).json({ error: 'No stream URL found' });
-                    }
-                    
-                    logger.log('INFO', 'STREAM', `Stream URL obtained successfully`);
-                    res.json({ streamUrl });
-                    
-                } catch (error) {
-                    logger.log('ERROR', 'STREAM', 'Error processing stream URL', error);
-                    res.status(500).json({ error: 'Failed to process stream URL' });
-                }
+            logger.log('ERROR', 'STREAM', 'yt-dlp failed to produce a playable stream URL', lastErrorOutput);
+            return res.status(500).json({
+                error: 'Failed to get stream URL',
+                details: lastErrorOutput || 'No playable URL returned by yt-dlp'
             });
             
         } catch (error) {
             logger.log('ERROR', 'STREAM', 'Stream URL endpoint error', error);
             res.status(500).json({ error: 'Internal server error' });
+        }
+    });
+    
+    // Stream video via server-side ffmpeg muxing (handles DASH/HLS/adaptive formats).
+    // This avoids CORS and manifest playback limitations in Chromium <video>.
+    expressApp.get('/api/stream', async (req, res) => {
+        try {
+            const url = req.query?.url;
+            
+            if (!url || typeof url !== 'string') {
+                return res.status(400).json({ error: 'Video URL is required' });
+            }
+            
+            res.setHeader('Cache-Control', 'no-store');
+            res.setHeader('Content-Type', 'video/mp4');
+            res.setHeader('Accept-Ranges', 'none');
+            
+            const rangeHeader = req.headers?.range ? String(req.headers.range) : '';
+            logger.log('INFO', 'STREAM', `Starting server-side stream for: ${url}${rangeHeader ? ` (Range: ${rangeHeader})` : ''}`);
+            
+            const ytDlpPath = path.join(depPath, 'yt-dlp.exe');
+            const ffmpegPath = path.join(depPath, 'ffmpeg.exe');
+            
+            const buildYtDlpArgs = () => {
+                // Try to prefer broadly compatible H.264/AAC first; fall back to "best" if needed.
+                // Note: when using separate streams, yt-dlp prints 2 URLs (video then audio).
+                const format = [
+                    'bestvideo[height<=720][vcodec^=avc1]+bestaudio[acodec^=mp4a]',
+                    'best[height<=720][vcodec^=avc1][acodec^=mp4a]',
+                    'bestvideo[height<=720]+bestaudio/best[height<=720]',
+                    'best'
+                ].join('/');
+                
+                const args = [
+                    '--get-url',
+                    '--no-playlist',
+                    '--no-warnings',
+                    '--format', format,
+                    url
+                ];
+                
+                if (settings.cookieFile && fsSync.existsSync(settings.cookieFile)) {
+                    args.push('--cookies', settings.cookieFile);
+                }
+                
+                return args;
+            };
+            
+            const runYtDlp = () => new Promise((resolve) => {
+                const args = buildYtDlpArgs();
+                logger.log('DEBUG', 'STREAM', `Resolving stream inputs with yt-dlp: ${args.join(' ')}`);
+                
+                const proc = spawn(ytDlpPath, args);
+                let stdout = '';
+                let stderr = '';
+                proc.stdout.on('data', (d) => { stdout += d.toString(); });
+                proc.stderr.on('data', (d) => { stderr += d.toString(); });
+                proc.on('close', (code) => resolve({ code, stdout, stderr, args }));
+            });
+            
+            const parseUrls = (stdout) => stdout
+                .split(/\r?\n/)
+                .map((s) => s.trim())
+                .filter(Boolean);
+            
+            const { code, stdout, stderr } = await runYtDlp();
+            
+            if (code !== 0) {
+                const errText = (stderr || stdout || '').trim();
+                logger.log('ERROR', 'STREAM', `yt-dlp failed to resolve stream inputs (code ${code})`, errText);
+                
+                if (errText.includes('requires authentication') || errText.includes('Sign in to confirm')) {
+                    return res.status(401).json({
+                        error: 'Authentication required',
+                        message: 'This video requires authentication. Please upload cookies in settings.'
+                    });
+                }
+                
+                if (errText.includes('DRM') || errText.includes('protected')) {
+                    return res.status(403).json({
+                        error: 'DRM protected content',
+                        message: 'This content is protected and cannot be streamed.'
+                    });
+                }
+                
+                return res.status(500).json({ error: 'Failed to resolve stream inputs', details: errText });
+            }
+            
+            const inputUrls = parseUrls(stdout);
+            if (!inputUrls.length) {
+                logger.log('ERROR', 'STREAM', 'yt-dlp returned no URLs for streaming', stdout);
+                return res.status(404).json({ error: 'No stream URLs found' });
+            }
+            
+            // Build ffmpeg pipeline. We output fragmented MP4 for progressive playback over HTTP.
+            const commonFfmpegArgs = [
+                '-hide_banner',
+                '-loglevel', 'error',
+                // Faster startup (reduce probe/analyze time)
+                '-analyzeduration', '0',
+                '-probesize', '32k',
+                '-fflags', '+genpts',
+                '-reconnect', '1',
+                '-reconnect_streamed', '1',
+                '-reconnect_delay_max', '5'
+            ];
+            
+            const outputArgsCopy = [
+                '-c', 'copy',
+                '-movflags', 'frag_keyframe+empty_moov+faststart',
+                '-f', 'mp4',
+                'pipe:1'
+            ];
+            
+            const outputArgsTranscode = [
+                '-c:v', 'libx264',
+                '-preset', 'veryfast',
+                '-crf', '23',
+                '-pix_fmt', 'yuv420p',
+                '-c:a', 'aac',
+                '-b:a', '128k',
+                '-movflags', 'frag_keyframe+empty_moov+faststart',
+                '-f', 'mp4',
+                'pipe:1'
+            ];
+            
+            const makeFfmpegArgs = (mode) => {
+                const out = mode === 'transcode' ? outputArgsTranscode : outputArgsCopy;
+                
+                if (inputUrls.length >= 2) {
+                    return [
+                        ...commonFfmpegArgs,
+                        '-i', inputUrls[0],
+                        '-i', inputUrls[1],
+                        '-map', '0:v:0',
+                        '-map', '1:a:0',
+                        '-shortest',
+                        ...out
+                    ];
+                }
+                
+                return [
+                    ...commonFfmpegArgs,
+                    '-i', inputUrls[0],
+                    ...out
+                ];
+            };
+            
+            const runFfmpeg = (mode) => new Promise((resolve) => {
+                const args = makeFfmpegArgs(mode);
+                logger.log('DEBUG', 'STREAM', `Starting ffmpeg (${mode}) with args: ${args.join(' ')}`);
+                
+                const ff = spawn(ffmpegPath, args, { stdio: ['ignore', 'pipe', 'pipe'] });
+                let bytes = 0;
+                let ffErr = '';
+                let clientClosed = false;
+                
+                const cleanup = () => {
+                    try { ff.kill('SIGKILL'); } catch { /* ignore */ }
+                };
+                
+                req.on('close', () => {
+                    clientClosed = true;
+                    logger.log('DEBUG', 'STREAM', 'Client disconnected; stopping ffmpeg stream');
+                    cleanup();
+                });
+                
+                ff.stderr.on('data', (d) => { ffErr += d.toString(); });
+                ff.stdout.on('data', (chunk) => { bytes += chunk.length; });
+                
+                // Stream to client
+                ff.stdout.pipe(res, { end: true });
+                
+                ff.on('close', (exitCode) => resolve({ exitCode, bytes, ffErr, clientClosed }));
+            });
+            
+            // Try remux/copy first; if it fails before producing any bytes, retry with transcode.
+            const copyResult = await runFfmpeg('copy');
+            if (copyResult.exitCode !== 0 && copyResult.bytes === 0) {
+                logger.log('WARN', 'STREAM', 'ffmpeg copy failed; retrying with transcode', copyResult.ffErr);
+                
+                // If we already wrote headers/body, Express may have ended; but in the "0 bytes" case this is safe.
+                // Re-open response if not finished.
+                if (!res.headersSent) {
+                    res.setHeader('Cache-Control', 'no-store');
+                    res.setHeader('Content-Type', 'video/mp4');
+                }
+                
+                const transcodeResult = await runFfmpeg('transcode');
+                if (transcodeResult.exitCode !== 0) {
+                    if (transcodeResult.clientClosed) {
+                        logger.log('DEBUG', 'STREAM', 'ffmpeg transcode stopped due to client disconnect');
+                    } else {
+                        logger.log('ERROR', 'STREAM', 'ffmpeg transcode failed', transcodeResult.ffErr);
+                    }
+                }
+            } else if (copyResult.exitCode !== 0) {
+                if (copyResult.clientClosed) {
+                    logger.log('DEBUG', 'STREAM', 'ffmpeg stream stopped due to client disconnect');
+                } else {
+                    logger.log('ERROR', 'STREAM', 'ffmpeg stream ended with error after sending data', copyResult.ffErr);
+                }
+            }
+            
+        } catch (error) {
+            logger.log('ERROR', 'STREAM', 'Stream endpoint error', error);
+            if (!res.headersSent) {
+                res.status(500).json({ error: 'Internal server error' });
+            } else {
+                try { res.end(); } catch { /* ignore */ }
+            }
         }
     });
     
