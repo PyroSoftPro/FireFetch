@@ -1,5 +1,13 @@
 // Downloads page functionality with unified list
-console.log('[DOWNLOADS] Script loading...');
+let FF_DEBUG = false;
+try {
+    FF_DEBUG = localStorage.getItem('firefetch-debug') === '1';
+} catch {}
+const ffLog = (...args) => { if (FF_DEBUG) console.log(...args); };
+const ffWarn = (...args) => { if (FF_DEBUG) console.warn(...args); };
+const ffErr = (...args) => { if (FF_DEBUG) console.error(...args); };
+
+ffLog('[DOWNLOADS] Script loading...');
 
 function showDRMError(message = 'This content is protected by DRM (digital-rights management) software. We can\'t legally bypass this.') {
     const existingError = document.getElementById('drmErrorMessage');
@@ -46,7 +54,10 @@ let eventSource = null;
 let currentState = null;
 let allDownloads = [];
 let filteredDownloads = [];
-console.log('[DOWNLOADS] Variables initialized');
+let reconnectTimer = null;
+let reconnectAttempt = 0;
+let updateQueued = false;
+ffLog('[DOWNLOADS] Variables initialized');
 
 // Initialize page
 document.addEventListener('DOMContentLoaded', function() {
@@ -55,10 +66,10 @@ document.addEventListener('DOMContentLoaded', function() {
     const downloadUrl = urlParams.get('url');
     const downloadFormat = urlParams.get('format');
     
-    console.log('[DOWNLOADS] Page loaded with URL params:', { downloadUrl, downloadFormat });
+    ffLog('[DOWNLOADS] Page loaded with URL params:', { downloadUrl, downloadFormat });
     
     if (downloadUrl && downloadFormat) {
-        console.log('[DOWNLOADS] Processing download from URL params');
+        ffLog('[DOWNLOADS] Processing download from URL params');
         processDownloadWithResolution(downloadUrl, downloadFormat);
     }
     
@@ -83,12 +94,23 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
+    // Try to learn debug flag from backend (doesn't exist in static file context)
+    // This keeps console spam OFF by default but allows you to enable by setting localStorage firefetch-debug=1.
+    fetch('/api/debug', { cache: 'no-store' })
+        .then(r => r.ok ? r.json() : null)
+        .then(data => {
+            if (data && typeof data.debug === 'boolean') {
+                FF_DEBUG = FF_DEBUG || data.debug; // localStorage can override to enable; backend can enable too
+            }
+        })
+        .catch(() => {});
+
     // Connect to download stream
-    console.log('[DOWNLOADS] Connecting to download stream');
+    ffLog('[DOWNLOADS] Connecting to download stream');
     connectToDownloadStream();
     
     // Load initial state
-    console.log('[DOWNLOADS] Loading initial queue state');
+    ffLog('[DOWNLOADS] Loading initial queue state');
     loadQueueState();
 });
 
@@ -98,40 +120,58 @@ function connectToDownloadStream() {
         eventSource.close();
     }
     
-    console.log('[DOWNLOADS] Creating SSE connection to /api/download-stream');
+    if (reconnectTimer) {
+        clearTimeout(reconnectTimer);
+        reconnectTimer = null;
+    }
+
+    ffLog('[DOWNLOADS] Creating SSE connection to /api/download-stream');
     eventSource = new EventSource('/api/download-stream');
     
     eventSource.onopen = function(event) {
-        console.log('[DOWNLOADS] SSE connection opened');
+        reconnectAttempt = 0;
+        ffLog('[DOWNLOADS] SSE connection opened');
     };
     
     eventSource.onmessage = function(event) {
         try {
             const data = JSON.parse(event.data);
-            console.log('[DOWNLOADS] Received SSE message:', data);
+            ffLog('[DOWNLOADS] Received SSE message:', data);
             
             if (data.type === 'state' || data.type === 'update') {
                 currentState = data.data;
-                console.log('[DOWNLOADS] Updated currentState:', currentState);
-                updateAllDownloads();
+                // Coalesce bursts of SSE updates into a single render per frame.
+                if (!updateQueued) {
+                    updateQueued = true;
+                    requestAnimationFrame(() => {
+                        updateQueued = false;
+                        updateAllDownloads();
+                    });
+                }
             }
         } catch (error) {
-            console.error('Error parsing SSE data:', error);
+            ffErr('Error parsing SSE data:', error);
         }
     };
     
     eventSource.onerror = function(error) {
-        console.error('SSE connection error:', error);
-        setTimeout(() => {
-            console.log('[DOWNLOADS] Reconnecting SSE...');
+        ffErr('SSE connection error:', error);
+
+        // Exponential backoff, single timer
+        if (reconnectTimer) return;
+        reconnectAttempt++;
+        const delay = Math.min(30000, 1000 * Math.pow(2, Math.min(5, reconnectAttempt)));
+        reconnectTimer = setTimeout(() => {
+            reconnectTimer = null;
+            ffLog('[DOWNLOADS] Reconnecting SSE...');
             connectToDownloadStream();
-        }, 5000);
+        }, delay);
     };
 }
 
 // Process download with URL resolution
 async function processDownloadWithResolution(url, format, title = null) {
-    console.log('[DOWNLOADS] Starting URL resolution for:', url);
+    ffLog('[DOWNLOADS] Starting URL resolution for:', url);
     
     // Show resolution progress
     showResolutionProgress('Resolving URL...');
@@ -151,7 +191,7 @@ async function processDownloadWithResolution(url, format, title = null) {
         }
         
         const resolution = await response.json();
-        console.log('[DOWNLOADS] URL resolution result:', resolution);
+        ffLog('[DOWNLOADS] URL resolution result:', resolution);
         
         if (!resolution.success) {
             throw new Error(resolution.error || 'URL resolution failed');
@@ -171,7 +211,7 @@ async function processDownloadWithResolution(url, format, title = null) {
         const finalUrl = resolution.resolvedUrl || url;
         const finalTitle = title || resolution.title || 'Download';
         
-        console.log('[DOWNLOADS] Proceeding with download:', {
+        ffLog('[DOWNLOADS] Proceeding with download:', {
             originalUrl: url,
             resolvedUrl: finalUrl,
             method: resolution.method,
@@ -183,7 +223,7 @@ async function processDownloadWithResolution(url, format, title = null) {
         addDownloadToQueue(finalUrl, format, finalTitle, resolution.method, resolution.type);
         
     } catch (error) {
-        console.error('[DOWNLOADS] URL resolution failed:', error);
+        ffErr('[DOWNLOADS] URL resolution failed:', error);
         hideResolutionProgress();
         
         // Show error but still attempt download with original URL as fallback
@@ -254,7 +294,7 @@ function hideResolutionProgress() {
 
 // Add download to queue
 async function addDownloadToQueue(url, format, title = null, resolvedMethod = null, resolvedType = null) {
-    console.log('[DOWNLOADS] Adding download to queue:', { url, format, title });
+    ffLog('[DOWNLOADS] Adding download to queue:', { url, format, title });
     try {
         const response = await fetch('/api/download', {
             method: 'POST',
@@ -264,7 +304,7 @@ async function addDownloadToQueue(url, format, title = null, resolvedMethod = nu
             body: JSON.stringify({ url, format, title, resolvedMethod, resolvedType })
         });
         
-        console.log('[DOWNLOADS] Response status:', response.status);
+        ffLog('[DOWNLOADS] Response status:', response.status);
         
         // Check if response is ok before parsing JSON
         if (!response.ok) {
@@ -279,13 +319,13 @@ async function addDownloadToQueue(url, format, title = null, resolvedMethod = nu
             throw new Error(`Invalid JSON response from server: ${jsonError.message}`);
         }
         
-        console.log('[DOWNLOADS] Response result:', result);
+        ffLog('[DOWNLOADS] Response result:', result);
         
         if (result.success) {
-            console.log('[DOWNLOADS] Download successfully added to queue');
+            ffLog('[DOWNLOADS] Download successfully added to queue');
             showNotification('Download added to queue', 'success');
         } else {
-            console.error('[DOWNLOADS] Failed to add download:', result.error);
+            ffErr('[DOWNLOADS] Failed to add download:', result.error);
             const errorMsg = result.error || '';
             // Check if this is a DRM-related error
             if (errorMsg.toLowerCase().includes('drm') || 
@@ -296,7 +336,7 @@ async function addDownloadToQueue(url, format, title = null, resolvedMethod = nu
             }
         }
     } catch (error) {
-        console.error('Error adding download to queue:', error);
+        ffErr('Error adding download to queue:', error);
         
         // Provide more specific error messages
         let errorMessage = 'Failed to add download to queue';
@@ -324,22 +364,22 @@ async function addDownloadToQueue(url, format, title = null, resolvedMethod = nu
 
 // Load current queue state
 async function loadQueueState() {
-    console.log('[DOWNLOADS] Loading queue state...');
+    ffLog('[DOWNLOADS] Loading queue state...');
     try {
         const response = await fetch('/api/queue');
-        console.log('[DOWNLOADS] Queue response status:', response.status);
+        ffLog('[DOWNLOADS] Queue response status:', response.status);
         const state = await response.json();
-        console.log('[DOWNLOADS] Queue state received:', state);
+        ffLog('[DOWNLOADS] Queue state received:', state);
         currentState = state;
         updateAllDownloads();
     } catch (error) {
-        console.error('Error loading queue state:', error);
+        ffErr('Error loading queue state:', error);
     }
 }
 
 // Update all downloads (unified from queue, active, and completed)
 function updateAllDownloads() {
-    console.log('[DOWNLOADS] updateAllDownloads called, currentState:', currentState);
+    ffLog('[DOWNLOADS] updateAllDownloads called');
     if (!currentState) return;
     
     // Combine all downloads from different states
@@ -349,8 +389,7 @@ function updateAllDownloads() {
         ...currentState.completed
     ];
     
-    console.log('[DOWNLOADS] Combined downloads:', allDownloads.length, 'total');
-    console.log('[DOWNLOADS] Queue:', currentState.queue.length, 'Active:', currentState.active.length, 'Completed:', currentState.completed.length);
+    ffLog('[DOWNLOADS] Combined downloads:', allDownloads.length, 'total');
     
     // Remove duplicates (in case a download exists in multiple arrays)
     const uniqueDownloads = [];
@@ -364,7 +403,7 @@ function updateAllDownloads() {
     }
     
     allDownloads = uniqueDownloads;
-    console.log('[DOWNLOADS] After deduplication:', allDownloads.length, 'downloads');
+    ffLog('[DOWNLOADS] After deduplication:', allDownloads.length, 'downloads');
     
     // Apply current filters
     filterDownloads();
@@ -376,7 +415,7 @@ function updateAllDownloads() {
 // Filter downloads based on status
 function filterDownloads() {
     const statusFilter = document.getElementById('statusFilter').value;
-    console.log('[DOWNLOADS] filterDownloads called, statusFilter:', statusFilter, 'allDownloads:', allDownloads.length);
+    ffLog('[DOWNLOADS] filterDownloads called, statusFilter:', statusFilter, 'allDownloads:', allDownloads.length);
     
     if (statusFilter === '') {
         filteredDownloads = [...allDownloads];
@@ -396,7 +435,7 @@ function filterDownloads() {
         );
     }
     
-    console.log('[DOWNLOADS] After filtering:', filteredDownloads.length, 'downloads');
+    ffLog('[DOWNLOADS] After filtering:', filteredDownloads.length, 'downloads');
     sortDownloads();
 }
 
@@ -435,18 +474,18 @@ function sortDownloads() {
 
 // Display downloads in the unified list
 function displayDownloads() {
-    console.log('[DOWNLOADS] displayDownloads called, filteredDownloads:', filteredDownloads.length);
+    ffLog('[DOWNLOADS] displayDownloads called, filteredDownloads:', filteredDownloads.length);
     const downloadsContainer = document.getElementById('allDownloads');
     const noDownloads = document.getElementById('noDownloads');
     
     if (filteredDownloads.length === 0) {
-        console.log('[DOWNLOADS] No filtered downloads, showing no downloads message');
+        ffLog('[DOWNLOADS] No filtered downloads, showing no downloads message');
         downloadsContainer.style.display = 'none';
         noDownloads.style.display = 'block';
         return;
     }
     
-    console.log('[DOWNLOADS] Showing downloads container, hiding no downloads message');
+    ffLog('[DOWNLOADS] Showing downloads container, hiding no downloads message');
     downloadsContainer.style.display = 'block';
     noDownloads.style.display = 'none';
 
@@ -457,7 +496,7 @@ function displayDownloads() {
     const laneIssues = document.getElementById('kanbanIssues');
 
     if (!laneQueued || !laneActive || !laneCompleted || !laneIssues) {
-        console.warn('[DOWNLOADS] Kanban lanes missing; falling back to linear render');
+        ffWarn('[DOWNLOADS] Kanban lanes missing; falling back to linear render');
         downloadsContainer.innerHTML = '';
         filteredDownloads.forEach(d => downloadsContainer.appendChild(createDownloadItem(d)));
         return;
@@ -483,12 +522,17 @@ function displayDownloads() {
 
     // Snapshot existing items across all lanes for in-place progress updates
     const existingItems = downloadsContainer.querySelectorAll('.download-item');
+    const itemById = new Map();
+    existingItems.forEach((el) => {
+        const id = el.getAttribute('data-id') || el.dataset?.id;
+        if (id) itemById.set(id, el);
+    });
 
     // Update/create/move items
     filteredDownloads.forEach((download, index) => {
-        console.log(`[DOWNLOADS] Processing download ${index}: ${download.id} - ${download.status}`);
+        ffLog(`[DOWNLOADS] Processing download ${index}: ${download.id} - ${download.status}`);
         const targetLane = laneForStatus(download.status);
-        const existingItem = downloadsContainer.querySelector(`[data-id="${download.id}"]`);
+        const existingItem = itemById.get(download.id) || null;
 
         if (existingItem && (download.status === 'downloading' || download.status === 'starting' || download.status === 'processing')) {
             updateDownloadItemInPlace(existingItem, download);

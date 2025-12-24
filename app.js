@@ -23,6 +23,11 @@ class Logger {
         this.logFile = null;
         this.logStream = null;
         this.initPromise = null;
+        this.debugEnabled = false;
+    }
+
+    setDebugEnabled(enabled) {
+        this.debugEnabled = !!enabled;
     }
 
     async init(logDir) {
@@ -59,6 +64,11 @@ class Logger {
     }
 
     log(level, category, message, data = null) {
+        // Drop DEBUG logs unless explicitly enabled (default OFF for performance).
+        if (level === 'DEBUG' && !this.debugEnabled) {
+            return;
+        }
+
         const timestamp = new Date().toISOString();
         const logEntry = {
             timestamp,
@@ -158,6 +168,12 @@ let resourcesPath;
 let userDataPath;
 let isPortable = false;
 
+// Debug mode: enables verbose logging. Default OFF for performance.
+// Enable via:
+// - env var: FIREFETCH_DEBUG=1
+// - settings.json: { "debugLogging": true }
+const DEBUG_LOGS = process.env.FIREFETCH_DEBUG === '1';
+
 if (app.isPackaged) {
     const exeDir = path.dirname(process.execPath);
     
@@ -244,7 +260,9 @@ let settings = {
     retryAttempts: 2,
     retryDelay: 5000,
     // Torrent settings
-    torrentEngine: 'webtorrent'  // 'webtorrent' or 'aria2c'
+    torrentEngine: 'webtorrent',  // 'webtorrent' or 'aria2c'
+    // Debug
+    debugLogging: false
 };
 
 // Get settings file path
@@ -284,6 +302,12 @@ async function loadSettings() {
             console.warn('[SETTINGS] Failed to read settings.json. Falling back to defaults.', err.message);
         }
     }
+}
+
+function syncLoggerDebugSetting() {
+    // Environment variable wins (useful for ad-hoc debugging without touching settings.json)
+    const enabled = DEBUG_LOGS || !!settings?.debugLogging;
+    logger.setDebugEnabled(enabled);
 }
 
 // Create downloads directory if it doesn't exist
@@ -749,6 +773,7 @@ class DownloadManager extends EventEmitter {
         this.queueEnabled = true;
         this.maxRetries = 2;
         this.lastBroadcast = 0; // For throttled updates
+        this.minBroadcastIntervalMs = 250; // 4 updates/sec max by default (smooth enough, reduces UI churn)
         
         // Console logging throttling
         this.lastConsoleLog = new Map(); // Track last log time per download
@@ -1117,7 +1142,7 @@ class DownloadManager extends EventEmitter {
                 const timePassed = now - lastProgressTime > 100;
                 
                 if (timePassed || progressUpdated) { // Update every 100ms or immediately on progress change
-                    this.broadcastUpdate();
+                    this.throttledBroadcastUpdate();
                     lastProgressTime = now;
                 }
             } else if (output.includes('[ffmpeg]') || 
@@ -1174,7 +1199,7 @@ class DownloadManager extends EventEmitter {
                 // Some tools output progress info to stderr
                 const progressUpdated = this.parseProgress(download, error);
                 if (progressUpdated) {
-                    this.broadcastUpdate(); // Immediate update for stderr progress
+                    this.throttledBroadcastUpdate(); // Throttled (stderr can be chatty)
                 }
             }
         });
@@ -1536,7 +1561,7 @@ class DownloadManager extends EventEmitter {
             const timePassed = now - lastProgressTime > 100;
             
             if (timePassed || progressUpdated) {
-                this.broadcastUpdate();
+                this.throttledBroadcastUpdate();
                 lastProgressTime = now;
             }
         });
@@ -1592,7 +1617,7 @@ class DownloadManager extends EventEmitter {
                 // Some tools output progress info to stderr, try parsing it
                 const progressUpdated = this.parseTorrentProgress(download, error);
                 if (progressUpdated) {
-                    this.broadcastUpdate();
+                    this.throttledBroadcastUpdate();
                 }
             }
         });
@@ -2456,8 +2481,8 @@ class DownloadManager extends EventEmitter {
     parseTorrentProgress(download, output) {
         let progressUpdated = false;
         
-        // Debug: Log all aria2c output for better debugging
-        if (output.trim().length > 0) {
+        // Debug-only: aria2c can be very chatty
+        if (logger.debugEnabled && output.trim().length > 0) {
             console.log(`[${download.id}] ARIA2C OUTPUT:`, output.trim());
         }
         
@@ -2475,7 +2500,9 @@ class DownloadManager extends EventEmitter {
                 if (newProgress !== oldProgress) {
                     download.progress = newProgress;
                     progressUpdated = true;
-                    console.log(`[${download.id}] Torrent Progress: ${oldProgress}% → ${newProgress}%`);
+                    if (logger.debugEnabled) {
+                        console.log(`[${download.id}] Torrent Progress: ${oldProgress}% → ${newProgress}%`);
+                    }
                 }
             }
         }
@@ -2561,11 +2588,11 @@ class DownloadManager extends EventEmitter {
 
         // Check for BitTorrent status messages
         if (output.includes('info hash=')) {
-            console.log(`[${download.id}] BitTorrent info hash detected - magnet link processing`);
+            if (logger.debugEnabled) console.log(`[${download.id}] BitTorrent info hash detected - magnet link processing`);
         }
         
         if (output.includes('SEEDING')) {
-            console.log(`[${download.id}] Download completed, now seeding`);
+            if (logger.debugEnabled) console.log(`[${download.id}] Download completed, now seeding`);
             if (download.progress < 100) {
                 download.progress = 100;
                 progressUpdated = true;
@@ -2574,7 +2601,7 @@ class DownloadManager extends EventEmitter {
 
         // Check for DHT activity
         if (output.includes('DHT') || output.includes('dht')) {
-            console.log(`[${download.id}] DHT activity detected: ${output.trim()}`);
+            if (logger.debugEnabled) console.log(`[${download.id}] DHT activity detected: ${output.trim()}`);
             
             // Look for specific DHT events
             if (output.includes('bootstrap') || output.includes('entry-point')) {
@@ -2606,29 +2633,29 @@ class DownloadManager extends EventEmitter {
         
         // Log tracker communications
         if (output.includes('tracker') || output.includes('announce')) {
-            console.log(`[${download.id}] Tracker communication: ${output.trim()}`);
+            if (logger.debugEnabled) console.log(`[${download.id}] Tracker communication: ${output.trim()}`);
         }
 
         // Check for peer connections and transition from starting to downloading
         if (output.includes('peer') || output.includes('Peer') || output.includes('CN:')) {
-            console.log(`[${download.id}] Peer activity: ${output.trim()}`);
+            if (logger.debugEnabled) console.log(`[${download.id}] Peer activity: ${output.trim()}`);
             
             // If we're still in starting status and we have peer activity, transition to downloading
             if (download.status === 'starting' && download.downloadType === 'magnet') {
                 download.status = 'downloading';
                 progressUpdated = true;
-                console.log(`[${download.id}] Magnet link found peers, transitioning to downloading`);
+                if (logger.debugEnabled) console.log(`[${download.id}] Magnet link found peers, transitioning to downloading`);
             }
         }
 
         // Check for metadata download completion
         if (output.includes('metadata') || output.includes('Metadata')) {
-            console.log(`[${download.id}] Metadata activity: ${output.trim()}`);
+            if (logger.debugEnabled) console.log(`[${download.id}] Metadata activity: ${output.trim()}`);
             
             if (download.status === 'starting') {
                 download.status = 'downloading';
                 progressUpdated = true;
-                console.log(`[${download.id}] Metadata downloaded, transitioning to downloading`);
+                if (logger.debugEnabled) console.log(`[${download.id}] Metadata downloaded, transitioning to downloading`);
             }
         }
 
@@ -2640,7 +2667,7 @@ class DownloadManager extends EventEmitter {
         let progressUpdated = false;
         
         // Debug log the raw output (only if it contains useful info)
-        if (output.includes('%') || output.includes('ETA') || output.includes('MiB') || output.includes('download')) {
+        if (logger.debugEnabled && (output.includes('%') || output.includes('ETA') || output.includes('MiB') || output.includes('download'))) {
             console.log(`[${download.id}] Parsing:`, JSON.stringify(output));
         }
         
@@ -2664,7 +2691,9 @@ class DownloadManager extends EventEmitter {
                         newProgress === 0 || newProgress === 100) {
                         download.progress = newProgress;
                         progressUpdated = true;
-                        console.log(`[${download.id}] Progress: ${oldProgress}% → ${newProgress}%`);
+                        if (logger.debugEnabled) {
+                            console.log(`[${download.id}] Progress: ${oldProgress}% → ${newProgress}%`);
+                        }
                     }
                     break;
                 }
@@ -2718,7 +2747,7 @@ class DownloadManager extends EventEmitter {
 
         // Handle download completion (but don't mark as completed yet!)
         if (output.includes('100%') && output.includes('downloaded')) {
-            console.log(`[${download.id}] File download reached 100%, keeping status as downloading until process completion`);
+            if (logger.debugEnabled) console.log(`[${download.id}] File download reached 100%, keeping status as downloading until process completion`);
             if (download.status === 'downloading') {
                 download.progress = 100;
                 progressUpdated = true;
@@ -2733,7 +2762,7 @@ class DownloadManager extends EventEmitter {
             download.progress = 100;
             download.status = 'completed';
             progressUpdated = true;
-            console.log(`[${download.id}] File already exists, marking as completed`);
+            if (logger.debugEnabled) console.log(`[${download.id}] File already exists, marking as completed`);
         }
         
         // Return whether progress was updated (for immediate broadcast)
@@ -3001,6 +3030,8 @@ class DownloadManager extends EventEmitter {
             delete cleaned.process;
             delete cleaned.torrentEngine;
             delete cleaned.webTorrent;
+            // Remove large/verbose fields not needed by UI state streams
+            delete cleaned.stderrOutput;
             return cleaned;
         };
         
@@ -3036,7 +3067,7 @@ class DownloadManager extends EventEmitter {
     // Throttled broadcast updates to reduce UI lag
     throttledBroadcastUpdate() {
         const now = Date.now();
-        if (!this.lastBroadcast || now - this.lastBroadcast >= 3000) {
+        if (!this.lastBroadcast || now - this.lastBroadcast >= this.minBroadcastIntervalMs) {
             this.broadcastUpdate();
             this.lastBroadcast = now;
         }
@@ -3525,6 +3556,14 @@ function createServer() {
         res.setHeader('Cache-Control', 'no-store');
         res.json({
             version: app.getVersion()
+        });
+    });
+
+    // Debug info (frontend can use this to gate console logs)
+    expressApp.get('/api/debug', (req, res) => {
+        res.setHeader('Cache-Control', 'no-store');
+        res.json({
+            debug: !!(DEBUG_LOGS || settings?.debugLogging)
         });
     });
 
@@ -5669,6 +5708,7 @@ app.whenReady().then(async () => {
     
     // Load settings and ensure directories exist
     await loadSettings();
+    syncLoggerDebugSetting();
     await ensureDownloadsDir();
     await ensureCookiesDir();
     

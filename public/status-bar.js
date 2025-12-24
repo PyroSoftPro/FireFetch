@@ -2,6 +2,13 @@
 
 let statusBarEventSource = null;
 let statusBarState = null;
+let statusBarReconnectTimer = null;
+let statusBarReconnectAttempt = 0;
+let FF_STATUS_DEBUG = false;
+try {
+    FF_STATUS_DEBUG = localStorage.getItem('firefetch-debug') === '1';
+} catch {}
+const ffStatusLog = (...args) => { if (FF_STATUS_DEBUG) console.log(...args); };
 
 // Initialize status bar on all pages
 document.addEventListener('DOMContentLoaded', function() {
@@ -92,8 +99,18 @@ function connectToStatusStream() {
     if (statusBarEventSource) {
         statusBarEventSource.close();
     }
+
+    if (statusBarReconnectTimer) {
+        clearTimeout(statusBarReconnectTimer);
+        statusBarReconnectTimer = null;
+    }
     
     statusBarEventSource = new EventSource('/api/download-stream');
+    
+    statusBarEventSource.onopen = function() {
+        statusBarReconnectAttempt = 0;
+        ffStatusLog('[STATUS] SSE opened');
+    };
     
     statusBarEventSource.onmessage = function(event) {
         try {
@@ -104,16 +121,21 @@ function connectToStatusStream() {
                 updateStatusBarDisplay(statusBarState);
             }
         } catch (error) {
-            console.error('Error parsing status bar SSE data:', error);
+            if (FF_STATUS_DEBUG) console.error('Error parsing status bar SSE data:', error);
         }
     };
     
     statusBarEventSource.onerror = function(error) {
-        console.error('Status bar SSE connection error:', error);
-        // Reconnect after delay
-        setTimeout(() => {
+        if (FF_STATUS_DEBUG) console.error('Status bar SSE connection error:', error);
+
+        // Exponential backoff, single timer
+        if (statusBarReconnectTimer) return;
+        statusBarReconnectAttempt++;
+        const delay = Math.min(30000, 1000 * Math.pow(2, Math.min(5, statusBarReconnectAttempt)));
+        statusBarReconnectTimer = setTimeout(() => {
+            statusBarReconnectTimer = null;
             connectToStatusStream();
-        }, 5000);
+        }, delay);
     };
 }
 
