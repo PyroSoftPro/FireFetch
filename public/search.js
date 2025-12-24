@@ -273,7 +273,7 @@ async function openDownloadModal(index) {
     startDownloadBtn.disabled = true;
     
     // Show modal
-    modal.style.display = 'block';
+    modal.style.display = 'flex';
     
     // Fetch available formats
     try {
@@ -597,7 +597,7 @@ function playVideoStream(streamUrl, title) {
     playerVideo.preload = 'auto';
     playerVideo.src = cleanedUrl;
     playerVideo.load();
-    player.style.display = 'block';
+    player.style.display = 'flex';
     
     // Check autoplay setting
     const savedSettings = localStorage.getItem('firefetch-settings');

@@ -106,7 +106,12 @@ body::before {
     width: 100%;
     max-width: 800px;
     margin: 0 auto;
-    padding: 40px 0;
+    padding: 28px 0;
+    /* Home page uses this wrapper for the Fetch "modal" card; center it vertically */
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
 }
 
 h1 {
@@ -195,6 +200,11 @@ h1 {
     display: flex;
     gap: 15px;
     margin-bottom: 40px;
+}
+
+/* Home page: avoid extra bottom margin so the Fetch card is truly centered */
+.content-wrapper .input-section {
+    margin-bottom: 0;
 }
 
 #urlInput {
@@ -2120,16 +2130,20 @@ body:not(.download-page) .container {
     height: 100%;
     z-index: 1000;
     overflow-y: auto;
+    /* Center the modal content vertically + horizontally */
+    align-items: center;
+    justify-content: center;
+    padding: 28px 22px;
 }
 
 .video-player-content {
     position: relative;
     width: 100%;
-    height: 100%;
     display: flex;
     align-items: center;
     justify-content: center;
     padding: 24px;
+    min-height: calc(100vh - 56px);
 }
 
 .video-player video {
@@ -2166,13 +2180,12 @@ body:not(.download-page) .container {
 }
 
 .download-modal-content {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
+    position: relative;
     max-width: 640px;
     width: min(640px, 92vw);
     padding: 22px;
+    max-height: calc(100vh - 56px);
+    overflow: auto;
 }
 
 .download-modal h2 {
@@ -2233,8 +2246,10 @@ body:not(.download-page) .container {
 /* Browse/Files modal container */
 .modal-content {
     width: min(1100px, 92vw);
-    margin: 60px auto;
+    margin: 0;
     padding: 22px;
+    max-height: calc(100vh - 56px);
+    overflow: auto;
 }
 
 /* ---------- Browse / Files filter toolbar ---------- */

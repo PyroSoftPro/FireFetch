@@ -260,7 +260,7 @@ async function showFileModal(filename) {
         }
         
         // Show modal
-        document.getElementById('fileModal').style.display = 'block';
+        document.getElementById('fileModal').style.display = 'flex';
         document.getElementById('fullMetadata').style.display = 'none';
         
     } catch (error) {

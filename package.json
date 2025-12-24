@@ -1,6 +1,6 @@
 {
   "name": "firefetch",
-  "version": "25.12.23",
+  "version": "25.12.24",
   "description": "A modern video downloader with a sleek dark interface",
   "main": "app.js",
   "scripts": {

@@ -262,7 +262,7 @@ function playVideo(index) {
     const playerVideo = document.getElementById('playerVideo');
     
     playerVideo.src = `/videos/${encodeURIComponent(video.filename)}`;
-    player.style.display = 'block';
+    player.style.display = 'flex';
     
     // Check autoplay setting
     const savedSettings = localStorage.getItem('firefetch-settings');
@@ -337,7 +337,7 @@ function showVideoInfo(index) {
     document.getElementById('fullMetadata').style.display = 'none';
     
     // Show modal
-    modal.style.display = 'block';
+    modal.style.display = 'flex';
 }
 
 function closeModal() {
