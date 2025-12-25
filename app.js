@@ -6043,6 +6043,10 @@ app.whenReady().then(async () => {
         
         // Tray-only mode: create tray after server starts (so Open FireFetch works immediately)
         createTray();
+
+        // Open the UI in the user's default browser as soon as the app starts.
+        const url = `http://localhost:${PORT}`;
+        shell.openExternal(url);
     });
     
     app.on('activate', () => {
