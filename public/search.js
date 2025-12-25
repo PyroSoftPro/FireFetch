@@ -4,6 +4,7 @@ let currentVideoForDownload = null;
 let currentStreamVideo = null;
 let streamWarmupTimer = null;
 const DEFAULT_STREAM_FORMAT = 'bestvideo[height<=1080]+bestaudio/best[height<=1080]';
+const PREVIEW_MIN_BUFFER_SECONDS = 30;
 let currentPrefetchJobId = null;
 let prefetchPollTimer = null;
 
@@ -597,35 +598,124 @@ function attachPlayerStatusHandlers(playerVideo) {
     if (!playerVideo || playerVideo.dataset.ffPlayerStatusHandlers) return;
     playerVideo.dataset.ffPlayerStatusHandlers = '1';
 
-    const getBufferedSeconds = () => {
+    const getBufferedAheadSeconds = () => {
         try {
             if (!playerVideo.buffered || playerVideo.buffered.length === 0) return 0;
-            return Math.max(0, playerVideo.buffered.end(playerVideo.buffered.length - 1) - playerVideo.currentTime);
+            const t = Number(playerVideo.currentTime || 0);
+            // Prefer the buffered range that contains currentTime.
+            for (let i = 0; i < playerVideo.buffered.length; i++) {
+                const start = playerVideo.buffered.start(i);
+                const end = playerVideo.buffered.end(i);
+                if (start <= t && end >= t) {
+                    return Math.max(0, end - t);
+                }
+            }
+            // Fallback to the last range.
+            return Math.max(0, playerVideo.buffered.end(playerVideo.buffered.length - 1) - t);
         } catch {
             return 0;
         }
+    };
+
+    const getRequiredBufferSeconds = () => {
+        const t = Number(playerVideo.currentTime || 0);
+        const dur = Number(playerVideo.duration);
+        // For short clips, don't require more than what's left.
+        if (Number.isFinite(dur) && dur > 0) {
+            return Math.max(0, Math.min(PREVIEW_MIN_BUFFER_SECONDS, dur - t));
+        }
+        return PREVIEW_MIN_BUFFER_SECONDS;
+    };
+
+    let gateInterval = null;
+    const clearBufferGate = () => {
+        if (gateInterval) {
+            clearInterval(gateInterval);
+            gateInterval = null;
+        }
+        delete playerVideo.dataset.ffGatePendingPlay;
+        delete playerVideo.dataset.ffGatePausing;
+        delete playerVideo.dataset.ffGateBypassOnce;
+    };
+
+    const tickBufferGate = () => {
+        // Stop if the source is being torn down.
+        if (playerVideo.dataset.ffClosing === '1') {
+            clearBufferGate();
+            return;
+        }
+        if (playerVideo.dataset.ffGatePendingPlay !== '1') return;
+
+        const required = getRequiredBufferSeconds();
+        const ahead = getBufferedAheadSeconds();
+        const pct = required > 0 ? Math.min(100, Math.round((ahead / required) * 100)) : 100;
+
+        if (ahead >= required && required > 0) {
+            clearBufferGate();
+            // Avoid immediately re-triggering the gate on our own play().
+            playerVideo.dataset.ffGateBypassOnce = '1';
+            playerVideo.play().catch(() => {
+                // If autoplay is blocked, the user can press play again.
+            });
+            return;
+        }
+
+        // Keep status helpful while waiting.
+        updatePlayerBufferStatus(`Buffering… ${Math.floor(ahead)}s / ${Math.ceil(required)}s (${pct}%)`);
     };
 
     playerVideo.addEventListener('waiting', () => updatePlayerBufferStatus('Buffering…'));
     playerVideo.addEventListener('stalled', () => updatePlayerBufferStatus('Buffering…'));
     playerVideo.addEventListener('loadstart', () => updatePlayerBufferStatus('Starting stream…'));
     playerVideo.addEventListener('canplay', () => {
-        const secs = Math.floor(getBufferedSeconds());
+        const secs = Math.floor(getBufferedAheadSeconds());
         updatePlayerBufferStatus(secs > 0 ? `Ready (buffered ~${secs}s). Click play.` : 'Ready. Click play.');
     });
     playerVideo.addEventListener('playing', () => updatePlayerBufferStatus('Playing'));
     playerVideo.addEventListener('pause', () => {
         if (playerVideo.dataset.ffClosing === '1') return;
-        const secs = Math.floor(getBufferedSeconds());
+        const secs = Math.floor(getBufferedAheadSeconds());
         updatePlayerBufferStatus(secs > 0 ? `Paused (buffered ~${secs}s)` : 'Paused');
     });
     playerVideo.addEventListener('progress', () => {
         if (playerVideo.readyState < 2) return;
-        const secs = Math.floor(getBufferedSeconds());
+        const secs = Math.floor(getBufferedAheadSeconds());
         if (secs > 0 && playerVideo.paused) {
             updatePlayerBufferStatus(`Ready (buffered ~${secs}s). Click play.`);
         }
     });
+
+    // Buffer gate: when the user presses play, wait until ~30s are buffered ahead, then start playback.
+    playerVideo.addEventListener('play', () => {
+        // Don't interfere with teardown / warm-buffer / internal retries.
+        if (playerVideo.dataset.ffClosing === '1') return;
+        if (playerVideo.dataset.ffBypassBufferGate === '1') return;
+        if (playerVideo.dataset.ffGateBypassOnce === '1') {
+            delete playerVideo.dataset.ffGateBypassOnce;
+            return;
+        }
+
+        const required = getRequiredBufferSeconds();
+        if (required <= 0) return;
+
+        const ahead = getBufferedAheadSeconds();
+        if (ahead >= required) return;
+
+        playerVideo.dataset.ffGatePendingPlay = '1';
+        playerVideo.dataset.ffGatePausing = '1';
+        try { playerVideo.pause(); } catch {}
+        delete playerVideo.dataset.ffGatePausing;
+
+        // Start (or keep) the polling loop until we have enough buffered.
+        if (!gateInterval) {
+            gateInterval = setInterval(tickBufferGate, 250);
+        }
+        tickBufferGate();
+    });
+
+    // Cleanup gate state when media is unloaded.
+    playerVideo.addEventListener('emptied', clearBufferGate);
+    playerVideo.addEventListener('ended', clearBufferGate);
 }
 
 function warmBufferStream(playerVideo) {
@@ -639,6 +729,8 @@ function warmBufferStream(playerVideo) {
 
     // Warm-buffer by attempting muted autoplay (allowed in Chromium) then pause.
     playerVideo.muted = true;
+    // Bypass the 30s buffer gate during warmup (we only want to establish a connection + a small buffer).
+    playerVideo.dataset.ffBypassBufferGate = '1';
     const playPromise = playerVideo.play();
 
     const stopWarmup = () => {
@@ -646,6 +738,7 @@ function warmBufferStream(playerVideo) {
         // Reset to start so user hits play from 0
         try { playerVideo.currentTime = 0; } catch {}
         playerVideo.muted = false;
+        delete playerVideo.dataset.ffBypassBufferGate;
         playerVideo.removeEventListener('canplay', stopWarmup);
     };
 
@@ -666,6 +759,7 @@ function warmBufferStream(playerVideo) {
                 streamWarmupTimer = null;
             }
             try { playerVideo.muted = false; } catch {}
+            delete playerVideo.dataset.ffBypassBufferGate;
         });
     }
 }
@@ -820,12 +914,20 @@ async function populateStreamQualityOptions(url) {
 }
 
 function startStreamPlayback(url, formatSelector, title) {
-    // Guarantee "buffer to end" by prefetching the entire stream to a temp mp4 on the backend.
-    // This continues even while the video is paused (Chromium otherwise stops after a small buffer).
-    startPrefetchAndLoadPlayer(url, formatSelector).catch((err) => {
-        console.error('[STREAM] Prefetch error:', err);
-        showFetchError(`Stream prefetch failed: ${err?.message || err}`);
-    });
+    const playerVideo = document.getElementById('playerVideo');
+    if (!playerVideo) return;
+
+    // Stream immediately so playback can begin once a small buffer is ready.
+    // We gate actual playback to ~30s buffered via attachPlayerStatusHandlers().
+    cancelPrefetchJob().catch(() => {});
+
+    playerVideo.pause();
+    playerVideo.preload = 'auto';
+    playerVideo.src = buildStreamEndpoint(url, formatSelector);
+    playerVideo.load();
+
+    // Warm-buffer so the user can hit play once ready (or autoplay if enabled).
+    warmBufferStream(playerVideo);
 }
 
 // Play video in modal player

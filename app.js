@@ -5876,48 +5876,10 @@ function createTray() {
     
     const contextMenu = Menu.buildFromTemplate([
         {
-            label: 'Show FireFetch',
+            label: 'Open FireFetch',
             click: () => {
-                mainWindow.show();
-                if (process.platform === 'darwin') {
-                    app.dock.show();
-                }
-            }
-        },
-        {
-            label: 'Hide FireFetch',
-            click: () => {
-                mainWindow.hide();
-                if (process.platform === 'darwin') {
-                    app.dock.hide();
-                }
-            }
-        },
-        {
-            type: 'separator'
-        },
-        {
-            label: 'Help',
-            click: () => {
-                const helpWindow = new BrowserWindow({
-                    width: 800,
-                    height: 600,
-                    parent: mainWindow,
-                    modal: false,
-                    webPreferences: {
-                        nodeIntegration: false,
-                        contextIsolation: true
-                    },
-                    title: 'FireFetch Help',
-                    backgroundColor: '#0f0f0f',
-                    autoHideMenuBar: true,
-                    icon: path.join(__dirname, 'icon.ico')
-                });
-                
-                addContextMenuToWindow(helpWindow);
-                
-                const helpPath = path.join(resourcesPath, 'public', 'help.html');
-                helpWindow.loadFile(helpPath);
+                const url = `http://localhost:${PORT}`;
+                shell.openExternal(url);
             }
         },
         {
@@ -5935,16 +5897,10 @@ function createTray() {
     tray.setContextMenu(contextMenu);
     tray.setToolTip('FireFetch - Video Downloader');
     
-    // Double-click tray icon to show/hide window
-    tray.on('double-click', () => {
-        if (mainWindow.isVisible()) {
-            mainWindow.hide();
-        } else {
-            mainWindow.show();
-            if (process.platform === 'darwin') {
-                app.dock.show();
-            }
-        }
+    // Click tray icon to open the UI in the user's default browser
+    tray.on('click', () => {
+        const url = `http://localhost:${PORT}`;
+        shell.openExternal(url);
     });
 }
 
@@ -6085,14 +6041,13 @@ app.whenReady().then(async () => {
     server = expressApp.listen(PORT, () => {
         console.log(`Server running at http://localhost:${PORT}`);
         
-        // Create window after server starts
-        createWindow();
+        // Tray-only mode: create tray after server starts (so Open FireFetch works immediately)
+        createTray();
     });
     
     app.on('activate', () => {
-        if (BrowserWindow.getAllWindows().length === 0) {
-            createWindow();
-        }
+        const url = `http://localhost:${PORT}`;
+        shell.openExternal(url);
     });
 });
 

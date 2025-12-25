@@ -445,23 +445,16 @@ Static help content (no page-specific JS), covering:
   - **Close** button (`window.close()`)
 - On load, it fetches `GET /api/versions` to update yt-dlp and aria2c versions in the dependency list.
 
-## Electron shell UI (desktop app chrome)
+## Electron shell UI (desktop app host / tray app)
 
-- **Main window**:
-  - Loads `http://localhost:3000/` (Express serves static UI + API).
-  - Starts hidden, then shows/maximizes on `ready-to-show`.
-  - External links open in the system browser (not inside Electron).
-- **Minimize-to-tray behavior**:
-  - Closing the main window hides it unless user explicitly exits.
+- **Tray-only host**:
+  - FireFetch runs as a **system tray app** (no Electron window).
+  - The full UI is served by Express at `http://localhost:3000/` and opened in the **user’s default browser**.
 - **System tray icon**:
-  - Context menu: Show / Hide / Help / Exit
-  - Double-click toggles show/hide
-- **Application menu**:
-  - File → About FireFetch (opens `about.html`)
-  - File → Help (opens `help.html`)
-  - File → Exit
-- **Right-click context menu** (copy/paste):
-  - Enabled for editable fields; also copy-only for selections.
+  - Context menu: **Open FireFetch** / **Exit**
+  - Clicking the tray icon opens FireFetch in the browser.
+
+
 
 
 
