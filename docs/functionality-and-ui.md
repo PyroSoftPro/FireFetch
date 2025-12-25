@@ -449,7 +449,7 @@ Static help content (no page-specific JS), covering:
 
 - **Tray-only host**:
   - FireFetch runs as a **system tray app** (no Electron window).
-  - The full UI is served by Express at `http://localhost:3000/` and opened in the **user’s default browser**.
+  - The full UI is served by Express on `http://localhost:3000/` by default (or `http://localhost:3001/`, etc. if 3000 is taken) and opened in the **user’s default browser**.
 - **System tray icon**:
   - Context menu: **Open FireFetch** / **Exit**
   - Clicking the tray icon opens FireFetch in the browser.

@@ -157,10 +157,37 @@ if (!gotTheLock) {
 }
 
 // Configuration
-const PORT = 3000;
+const BASE_PORT = 3000;
+const MAX_PORT_TRIES = 50; // 3000..3049
+let PORT = BASE_PORT; // chosen at runtime (auto-increments if taken)
 let mainWindow;
 let server;
 let tray;
+
+function getBaseUrl() {
+    return `http://localhost:${PORT}`;
+}
+
+async function listenWithPortFallback(expressApp, startPort = BASE_PORT, maxTries = MAX_PORT_TRIES) {
+    for (let i = 0; i < maxTries; i++) {
+        const port = startPort + i;
+        try {
+            const srv = await new Promise((resolve, reject) => {
+                const s = expressApp.listen(port, () => resolve(s));
+                s.once('error', reject);
+            });
+            PORT = port;
+            return srv;
+        } catch (err) {
+            const code = err?.code;
+            // Try the next port if the current one is taken / not bindable.
+            if (code === 'EADDRINUSE' || code === 'EACCES') continue;
+            throw err;
+        }
+    }
+    const lastPort = startPort + maxTries - 1;
+    throw new Error(`No available port found in range ${startPort}-${lastPort}`);
+}
 
 // Stream prefetch jobs (used by Search preview to "buffer to end" reliably)
 // job: { id, status, filePath, createdAt, startedAt, finishedAt, bytesWritten, error, ffProc, pollTimer }
@@ -5878,8 +5905,7 @@ function createTray() {
         {
             label: 'Open FireFetch',
             click: () => {
-                const url = `http://localhost:${PORT}`;
-                shell.openExternal(url);
+                shell.openExternal(getBaseUrl());
             }
         },
         {
@@ -5899,8 +5925,7 @@ function createTray() {
     
     // Click tray icon to open the UI in the user's default browser
     tray.on('click', () => {
-        const url = `http://localhost:${PORT}`;
-        shell.openExternal(url);
+        shell.openExternal(getBaseUrl());
     });
 }
 
@@ -6036,22 +6061,31 @@ app.whenReady().then(async () => {
     // Load download manager state
     await downloadManager.loadState();
     
-    // Create and start Express server
+    // Create and start Express server (auto-increment port if 3000 is taken)
     const expressApp = createServer();
-    server = expressApp.listen(PORT, () => {
-        console.log(`Server running at http://localhost:${PORT}`);
+    try {
+        server = await listenWithPortFallback(expressApp, BASE_PORT, MAX_PORT_TRIES);
+    } catch (err) {
+        const msg = String(err?.message || err);
+        logger.log('ERROR', 'SYSTEM', 'Failed to start server', msg);
+        try {
+            dialog.showErrorBox('FireFetch - Startup Error', `Failed to start the local server.\n\n${msg}`);
+        } catch {
+            // ignore
+        }
+        app.quit();
+        return;
+    }
+    console.log(`Server running at ${getBaseUrl()}`);
         
-        // Tray-only mode: create tray after server starts (so Open FireFetch works immediately)
-        createTray();
+    // Tray-only mode: create tray after server starts (so Open FireFetch works immediately)
+    createTray();
 
-        // Open the UI in the user's default browser as soon as the app starts.
-        const url = `http://localhost:${PORT}`;
-        shell.openExternal(url);
-    });
+    // Open the UI in the user's default browser as soon as the app starts.
+    shell.openExternal(getBaseUrl());
     
     app.on('activate', () => {
-        const url = `http://localhost:${PORT}`;
-        shell.openExternal(url);
+        shell.openExternal(getBaseUrl());
     });
 });
 

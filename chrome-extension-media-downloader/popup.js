@@ -283,7 +283,6 @@ async function sendItemsToFireFetch(items) {
   setStatus(`Fetching info + sending ${unique.length} URL(s) to FireFetch…`);
   const resp = await sendToBackground({
     type: "FIREFETCH_ENQUEUE_WITH_INFO",
-    baseUrl: "http://localhost:3000",
     items: unique.map((u) => ({
       url: u.url,
       title: u.title,
@@ -299,7 +298,7 @@ async function sendItemsToFireFetch(items) {
   const failures = (resp.results || []).filter((r) => !r.ok);
   if (failures.length) {
     // Most common: FireFetch not running.
-    setStatus(`Sent with errors (${failures.length}). Is FireFetch running on localhost:3000?`);
+    setStatus(`Sent with errors (${failures.length}). Is FireFetch running (localhost:3000+)?`);
   } else {
     setStatus(`Sent to FireFetch (${unique.length})`);
   }

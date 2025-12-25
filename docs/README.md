@@ -17,7 +17,7 @@ This folder documents the **current** behavior of FireFetch based on the code in
 
 ## Key Runtime Facts (from code)
 
-- **Server**: Express on **`http://localhost:3000`**
+- **Server**: Express on **`http://localhost:3000`** by default (auto-increments to 3001, 3002, … if 3000 is taken)
 - **Frontend**: static files served from `public/`
 - **State**:
   - `settings.json` (persisted settings)

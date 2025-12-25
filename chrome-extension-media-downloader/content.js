@@ -276,7 +276,6 @@ async function sendCurrentPageToFireFetch() {
     const url = location.href;
     await chrome.runtime.sendMessage({
       type: "FIREFETCH_ENQUEUE_WITH_INFO",
-      baseUrl: "http://localhost:3000",
       items: [{ url, format: "best", title: document.title || "" }]
     });
     return true;
@@ -449,7 +448,6 @@ function renderToast({ count }) {
     try {
       await chrome.runtime.sendMessage({
         type: "FIREFETCH_ENQUEUE_WITH_INFO",
-        baseUrl: "http://localhost:3000",
         items: urls.map((u) => ({ url: u, format: "best", title: document.title || "" }))
       });
     } catch {

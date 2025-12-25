@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "savedAt": "2025-12-25T06:50:01.416Z",
-  "nextId": 47,
+  "savedAt": "2025-12-25T07:00:39.679Z",
+  "nextId": 48,
   "queue": [
     {
       "id": "download_33_1766503397225",
@@ -244,9 +244,53 @@
       "leechers": null,
       "peers": 0,
       "ratio": null
+    },
+    {
+      "id": "download_47_1766646031632",
+      "url": "https://www.youtube.com/watch?v=onzL0EM1pKY",
+      "format": "137",
+      "title": "Fall Out Boy - Thnks fr th Mmrs (Official Music Video)",
+      "status": "completed",
+      "progress": 100,
+      "speed": null,
+      "eta": null,
+      "size": "3.91MiB",
+      "error": null,
+      "retryCount": 0,
+      "addedAt": "2025-12-25T07:00:31.632Z",
+      "startedAt": "2025-12-25T07:00:31.632Z",
+      "completedAt": "2025-12-25T07:00:38.679Z",
+      "downloadType": "video",
+      "uploadSpeed": null,
+      "seeds": null,
+      "leechers": null,
+      "peers": 0,
+      "ratio": null
     }
   ],
   "completedDownloads": [
+    {
+      "id": "download_47_1766646031632",
+      "url": "https://www.youtube.com/watch?v=onzL0EM1pKY",
+      "format": "137",
+      "title": "Fall Out Boy - Thnks fr th Mmrs (Official Music Video)",
+      "status": "completed",
+      "progress": 100,
+      "speed": null,
+      "eta": null,
+      "size": "3.91MiB",
+      "error": null,
+      "retryCount": 0,
+      "addedAt": "2025-12-25T07:00:31.632Z",
+      "startedAt": "2025-12-25T07:00:31.632Z",
+      "completedAt": "2025-12-25T07:00:38.679Z",
+      "downloadType": "video",
+      "uploadSpeed": null,
+      "seeds": null,
+      "leechers": null,
+      "peers": 0,
+      "ratio": null
+    },
     {
       "id": "download_46_1766635778003",
       "url": "https://www.youtube.com/watch?v=ACNRW25VDnw",

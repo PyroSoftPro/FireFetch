@@ -1,11 +1,11 @@
 # API Reference
 
-FireFetch starts an embedded Express server on **`http://localhost:3000`** (see `app.js`). The Electron UI loads `http://localhost:3000/` which redirects to `index.html`.
+FireFetch starts an embedded Express server on **`http://localhost:3000`** by default, but will **auto-increment to the next available port** (3001, 3002, …) if 3000 is already taken (see `app.js`).
 
 ## Base URL
 
-- **Web UI**: `http://localhost:3000/`
-- **API**: `http://localhost:3000/api/*`
+- **Web UI**: `http://localhost:3000/` (or `http://localhost:3001/`, etc.)
+- **API**: `http://localhost:3000/api/*` (or `http://localhost:3001/api/*`, etc.)
 
 ## App Authentication
 

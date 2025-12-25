@@ -2,6 +2,58 @@
 
 const SCAN_STORE_PREFIX = "scan:";
 const NOTIFY_STORE_PREFIX = "notify:";
+
+// FireFetch base URL autodetection (handles when port 3000 is taken and FireFetch binds 3001, 3002, ...)
+const FIREFETCH_PORT_START = 3000;
+const FIREFETCH_PORT_TRIES = 50; // 3000..3049
+const FIREFETCH_DETECT_TIMEOUT_MS = 700;
+let cachedFireFetchBase = null;
+let cachedFireFetchBaseAt = 0;
+
+function withTimeout(ms) {
+  const controller = new AbortController();
+  const t = setTimeout(() => controller.abort(), ms);
+  return { controller, clear: () => clearTimeout(t) };
+}
+
+async function detectFireFetchBase() {
+  // Cache for a short window to avoid probing on every click.
+  const now = Date.now();
+  if (cachedFireFetchBase && now - cachedFireFetchBaseAt < 15_000) {
+    return cachedFireFetchBase;
+  }
+
+  for (let i = 0; i < FIREFETCH_PORT_TRIES; i++) {
+    const port = FIREFETCH_PORT_START + i;
+    const base = `http://localhost:${port}`;
+    const probeUrl = `${base}/api/debug`;
+    const t = withTimeout(FIREFETCH_DETECT_TIMEOUT_MS);
+    try {
+      const resp = await fetch(probeUrl, { cache: "no-store", signal: t.controller.signal });
+      if (resp && resp.ok) {
+        cachedFireFetchBase = base;
+        cachedFireFetchBaseAt = Date.now();
+        return base;
+      }
+    } catch {
+      // ignore and continue probing
+    } finally {
+      t.clear();
+    }
+  }
+
+  // Fallback to default if nothing responds; callers will surface a helpful error.
+  cachedFireFetchBase = `http://localhost:${FIREFETCH_PORT_START}`;
+  cachedFireFetchBaseAt = Date.now();
+  return cachedFireFetchBase;
+}
+
+async function resolveFireFetchBase(passedBaseUrl) {
+  if (typeof passedBaseUrl === "string" && passedBaseUrl.trim()) {
+    return passedBaseUrl.trim().replace(/\/$/, "");
+  }
+  return (await detectFireFetchBase()).replace(/\/$/, "");
+}
 const SCAN_DEBOUNCE_MS = 800;
 const lastScanAtByTab = new Map();
 
@@ -114,8 +166,8 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 
     if (msg.type === "FIREFETCH_QUEUE_URLS") {
       const items = Array.isArray(msg.items) ? msg.items : [];
-      const firefetchBase = msg.baseUrl || "http://localhost:3000";
-      const endpoint = `${firefetchBase.replace(/\/$/, "")}/api/download`;
+      const base = await resolveFireFetchBase(msg.baseUrl);
+      const endpoint = `${base}/api/download`;
 
       const results = [];
       for (const item of items) {
@@ -162,8 +214,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 
     if (msg.type === "FIREFETCH_ENQUEUE_WITH_INFO") {
       const items = Array.isArray(msg.items) ? msg.items : [];
-      const firefetchBase = msg.baseUrl || "http://localhost:3000";
-      const base = firefetchBase.replace(/\/$/, "");
+      const base = await resolveFireFetchBase(msg.baseUrl);
       const infoEndpoint = `${base}/api/video-info`;
       const downloadEndpoint = `${base}/api/download`;
 
