@@ -5,6 +5,7 @@ const path = require('path');
 const { spawn, exec } = require('child_process');
 const fs = require('fs').promises;
 const fsSync = require('fs');
+const crypto = require('crypto');
 const { promisify } = require('util');
 const execAsync = promisify(exec);
 const multer = require('multer');
@@ -160,6 +161,10 @@ const PORT = 3000;
 let mainWindow;
 let server;
 let tray;
+
+// Stream prefetch jobs (used by Search preview to "buffer to end" reliably)
+// job: { id, status, filePath, createdAt, startedAt, finishedAt, bytesWritten, error, ffProc, pollTimer }
+const streamPrefetchJobs = new Map();
 
 // Determine base path for resources
 let basePath;
@@ -4369,9 +4374,20 @@ function createServer() {
     expressApp.get('/api/stream', async (req, res) => {
         try {
             const url = req.query?.url;
+            const formatParamRaw = req.query?.format;
             
             if (!url || typeof url !== 'string') {
                 return res.status(400).json({ error: 'Video URL is required' });
+            }
+
+            // Optional: custom yt-dlp format selector or format id.
+            // Keep it small and single-line to avoid abuse; it is passed as a spawn arg (not shell).
+            let requestedFormat = null;
+            if (typeof formatParamRaw === 'string') {
+                const cleaned = formatParamRaw.replace(/\r?\n/g, ' ').trim();
+                if (cleaned && cleaned.length <= 220) {
+                    requestedFormat = cleaned;
+                }
             }
             
             res.setHeader('Cache-Control', 'no-store');
@@ -4379,7 +4395,7 @@ function createServer() {
             res.setHeader('Accept-Ranges', 'none');
             
             const rangeHeader = req.headers?.range ? String(req.headers.range) : '';
-            logger.log('INFO', 'STREAM', `Starting server-side stream for: ${url}${rangeHeader ? ` (Range: ${rangeHeader})` : ''}`);
+            logger.log('INFO', 'STREAM', `Starting server-side stream for: ${url}${rangeHeader ? ` (Range: ${rangeHeader})` : ''}${requestedFormat ? ` (Format: ${requestedFormat})` : ''}`);
             
             const ytDlpPath = path.join(depPath, 'yt-dlp.exe');
             const ffmpegPath = path.join(depPath, 'ffmpeg.exe');
@@ -4387,12 +4403,14 @@ function createServer() {
             const buildYtDlpArgs = () => {
                 // Try to prefer broadly compatible H.264/AAC first; fall back to "best" if needed.
                 // Note: when using separate streams, yt-dlp prints 2 URLs (video then audio).
-                const format = [
+                const defaultFormat = [
                     'bestvideo[height<=720][vcodec^=avc1]+bestaudio[acodec^=mp4a]',
                     'best[height<=720][vcodec^=avc1][acodec^=mp4a]',
                     'bestvideo[height<=720]+bestaudio/best[height<=720]',
                     'best'
                 ].join('/');
+
+                const format = requestedFormat || defaultFormat;
                 
                 const args = [
                     '--get-url',
@@ -4573,6 +4591,342 @@ function createServer() {
                 try { res.end(); } catch { /* ignore */ }
             }
         }
+    });
+
+    // Prefetch an entire stream to a local mp4 file (so the UI can truly buffer to the end even while paused).
+    // Flow:
+    // - POST /api/prefetch-stream { url, format? } -> { id }
+    // - GET  /api/prefetch-stream/:id/status -> { status, bytesWritten, fileSize?, error? }
+    // - POST /api/prefetch-stream/:id/cancel
+    // - GET  /api/prefetch-stream/:id/file (only when complete)
+    const streamCacheDir = path.join(basePath, 'stream-cache');
+    const ensureStreamCacheDir = async () => {
+        try { await fs.mkdir(streamCacheDir, { recursive: true }); } catch { /* ignore */ }
+    };
+
+    const sanitizeFormatParam = (raw) => {
+        if (typeof raw !== 'string') return null;
+        const cleaned = raw.replace(/\r?\n/g, ' ').trim();
+        if (!cleaned) return null;
+        if (cleaned.length > 220) return null;
+        return cleaned;
+    };
+
+    const resolveStreamInputUrls = async (url, requestedFormat) => {
+        const ytDlpPath = path.join(depPath, 'yt-dlp.exe');
+        const defaultFormat = [
+            'bestvideo[height<=1080][vcodec^=avc1]+bestaudio[acodec^=mp4a]',
+            'best[height<=1080][vcodec^=avc1][acodec^=mp4a]',
+            'bestvideo[height<=1080]+bestaudio/best[height<=1080]',
+            'best'
+        ].join('/');
+
+        const format = requestedFormat || defaultFormat;
+
+        const args = [
+            '--get-url',
+            '--no-playlist',
+            '--no-warnings',
+            '--format', format,
+            url
+        ];
+
+        if (settings.cookieFile && fsSync.existsSync(settings.cookieFile)) {
+            args.push('--cookies', settings.cookieFile);
+        }
+
+        return await new Promise((resolve, reject) => {
+            const proc = spawn(ytDlpPath, args);
+            let stdout = '';
+            let stderr = '';
+            proc.stdout.on('data', (d) => { stdout += d.toString(); });
+            proc.stderr.on('data', (d) => { stderr += d.toString(); });
+            proc.on('error', (err) => reject(err));
+            proc.on('close', (code) => {
+                if (code !== 0) {
+                    const errText = (stderr || stdout || '').trim();
+                    return reject(new Error(errText || `yt-dlp failed (${code})`));
+                }
+                const urls = stdout
+                    .split(/\r?\n/)
+                    .map(s => s.trim())
+                    .filter(Boolean);
+                resolve(urls);
+            });
+        });
+    };
+
+    const startPrefetchJob = async ({ url, format }) => {
+        await ensureStreamCacheDir();
+
+        const id = (crypto.randomUUID && crypto.randomUUID()) || `prefetch_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+        const filePath = path.join(streamCacheDir, `${id}.mp4`);
+
+        const job = {
+            id,
+            status: 'running',
+            filePath,
+            createdAt: Date.now(),
+            startedAt: Date.now(),
+            finishedAt: null,
+            bytesWritten: 0,
+            error: null,
+            ffProc: null,
+            pollTimer: null
+        };
+        streamPrefetchJobs.set(id, job);
+
+        const setFailed = (err) => {
+            job.status = 'failed';
+            job.error = String(err?.message || err);
+            job.finishedAt = Date.now();
+            if (job.pollTimer) {
+                clearInterval(job.pollTimer);
+                job.pollTimer = null;
+            }
+        };
+
+        try {
+            const requestedFormat = sanitizeFormatParam(format);
+            const inputUrls = await resolveStreamInputUrls(url, requestedFormat);
+            if (!inputUrls.length) throw new Error('No stream URLs found');
+
+            const ffmpegPath = path.join(depPath, 'ffmpeg.exe');
+
+            const commonFfmpegArgs = [
+                '-hide_banner',
+                '-loglevel', 'error',
+                '-analyzeduration', '0',
+                '-probesize', '32k',
+                '-fflags', '+genpts',
+                '-reconnect', '1',
+                '-reconnect_streamed', '1',
+                '-reconnect_delay_max', '5'
+            ];
+
+            const outputArgsCopy = [
+                '-c', 'copy',
+                '-movflags', 'faststart',
+                '-f', 'mp4',
+                filePath
+            ];
+
+            const outputArgsTranscode = [
+                '-c:v', 'libx264',
+                '-preset', 'veryfast',
+                '-crf', '23',
+                '-pix_fmt', 'yuv420p',
+                '-c:a', 'aac',
+                '-b:a', '128k',
+                '-movflags', 'faststart',
+                '-f', 'mp4',
+                filePath
+            ];
+
+            const makeFfmpegArgs = (mode) => {
+                const out = mode === 'transcode' ? outputArgsTranscode : outputArgsCopy;
+                if (inputUrls.length >= 2) {
+                    return [
+                        ...commonFfmpegArgs,
+                        '-i', inputUrls[0],
+                        '-i', inputUrls[1],
+                        '-map', '0:v:0',
+                        '-map', '1:a:0',
+                        '-shortest',
+                        ...out
+                    ];
+                }
+                return [
+                    ...commonFfmpegArgs,
+                    '-i', inputUrls[0],
+                    ...out
+                ];
+            };
+
+            const runFfmpegToFile = (mode) => new Promise((resolve) => {
+                const args = makeFfmpegArgs(mode);
+                logger.log('DEBUG', 'STREAM', `Prefetch ffmpeg (${mode}) args: ${args.join(' ')}`);
+
+                const ff = spawn(ffmpegPath, args, { stdio: ['ignore', 'ignore', 'pipe'] });
+                job.ffProc = ff;
+                let ffErr = '';
+                ff.stderr.on('data', (d) => { ffErr += d.toString(); });
+                ff.on('close', (exitCode) => resolve({ exitCode, ffErr }));
+            });
+
+            // Track bytes written periodically
+            job.pollTimer = setInterval(() => {
+                try {
+                    if (fsSync.existsSync(job.filePath)) {
+                        const st = fsSync.statSync(job.filePath);
+                        job.bytesWritten = st.size || 0;
+                    }
+                } catch {
+                    // ignore
+                }
+            }, 500);
+
+            // Try copy first; if it fails, retry with transcode.
+            const copyResult = await runFfmpegToFile('copy');
+            if (copyResult.exitCode !== 0) {
+                logger.log('WARN', 'STREAM', 'Prefetch ffmpeg copy failed; retrying with transcode', copyResult.ffErr);
+                const transcodeResult = await runFfmpegToFile('transcode');
+                if (transcodeResult.exitCode !== 0) {
+                    throw new Error(transcodeResult.ffErr || `ffmpeg transcode failed (${transcodeResult.exitCode})`);
+                }
+            }
+
+            // Final size update
+            try {
+                if (fsSync.existsSync(job.filePath)) {
+                    const st = fsSync.statSync(job.filePath);
+                    job.bytesWritten = st.size || 0;
+                }
+            } catch {}
+
+            job.status = 'complete';
+            job.finishedAt = Date.now();
+            if (job.pollTimer) {
+                clearInterval(job.pollTimer);
+                job.pollTimer = null;
+            }
+            job.ffProc = null;
+        } catch (err) {
+            setFailed(err);
+            try {
+                if (fsSync.existsSync(job.filePath)) {
+                    fsSync.unlinkSync(job.filePath);
+                }
+            } catch {}
+        }
+
+        return id;
+    };
+
+    // Cleanup old prefetch jobs + files
+    setInterval(() => {
+        const now = Date.now();
+        for (const [id, job] of streamPrefetchJobs.entries()) {
+            const age = now - (job?.createdAt || now);
+            if (age < 2 * 60 * 60 * 1000) continue; // keep 2 hours
+            try {
+                if (job?.ffProc && !job.ffProc.killed) {
+                    job.ffProc.kill('SIGKILL');
+                }
+            } catch {}
+            try {
+                if (job?.pollTimer) clearInterval(job.pollTimer);
+            } catch {}
+            try {
+                if (job?.filePath && fsSync.existsSync(job.filePath)) fsSync.unlinkSync(job.filePath);
+            } catch {}
+            streamPrefetchJobs.delete(id);
+        }
+    }, 10 * 60 * 1000).unref?.();
+
+    expressApp.post('/api/prefetch-stream', async (req, res) => {
+        try {
+            const url = req.body?.url;
+            const format = req.body?.format;
+            if (!url || typeof url !== 'string') {
+                return res.status(400).json({ error: 'Video URL is required' });
+            }
+            const id = await startPrefetchJob({ url, format });
+            return res.json({ id });
+        } catch (err) {
+            return res.status(500).json({ error: 'Failed to start prefetch', details: String(err?.message || err) });
+        }
+    });
+
+    expressApp.get('/api/prefetch-stream/:id/status', (req, res) => {
+        const id = String(req.params?.id || '');
+        const job = streamPrefetchJobs.get(id);
+        if (!job) return res.status(404).json({ error: 'Not found' });
+        const fileSize = (() => {
+            try {
+                if (job.filePath && fsSync.existsSync(job.filePath)) {
+                    const st = fsSync.statSync(job.filePath);
+                    return st.size || 0;
+                }
+            } catch {}
+            return null;
+        })();
+        return res.json({
+            id,
+            status: job.status,
+            bytesWritten: job.bytesWritten || 0,
+            fileSize,
+            error: job.error || null
+        });
+    });
+
+    expressApp.post('/api/prefetch-stream/:id/cancel', (req, res) => {
+        const id = String(req.params?.id || '');
+        const job = streamPrefetchJobs.get(id);
+        if (!job) return res.status(404).json({ error: 'Not found' });
+
+        if (job.status === 'complete' || job.status === 'failed' || job.status === 'cancelled') {
+            return res.json({ success: true });
+        }
+
+        job.status = 'cancelled';
+        job.finishedAt = Date.now();
+        try {
+            if (job.ffProc && !job.ffProc.killed) {
+                job.ffProc.kill('SIGKILL');
+            }
+        } catch {}
+        try {
+            if (job.pollTimer) {
+                clearInterval(job.pollTimer);
+                job.pollTimer = null;
+            }
+        } catch {}
+        try {
+            if (job.filePath && fsSync.existsSync(job.filePath)) {
+                fsSync.unlinkSync(job.filePath);
+            }
+        } catch {}
+
+        return res.json({ success: true });
+    });
+
+    expressApp.get('/api/prefetch-stream/:id/file', (req, res) => {
+        const id = String(req.params?.id || '');
+        const job = streamPrefetchJobs.get(id);
+        if (!job) return res.status(404).json({ error: 'Not found' });
+        if (job.status !== 'complete') {
+            return res.status(409).json({ error: 'Not ready', status: job.status });
+        }
+        if (!job.filePath || !fsSync.existsSync(job.filePath)) {
+            return res.status(404).json({ error: 'File missing' });
+        }
+
+        const stat = fsSync.statSync(job.filePath);
+        const fileSize = stat.size;
+        const range = req.headers.range;
+
+        res.setHeader('Cache-Control', 'no-store');
+        res.setHeader('Content-Type', 'video/mp4');
+        res.setHeader('Accept-Ranges', 'bytes');
+
+        if (range) {
+            const match = String(range).match(/bytes=(\d+)-(\d+)?/);
+            if (match) {
+                const start = parseInt(match[1], 10);
+                const end = match[2] ? parseInt(match[2], 10) : fileSize - 1;
+                const safeStart = Math.max(0, Math.min(start, fileSize - 1));
+                const safeEnd = Math.max(safeStart, Math.min(end, fileSize - 1));
+                res.status(206);
+                res.setHeader('Content-Range', `bytes ${safeStart}-${safeEnd}/${fileSize}`);
+                res.setHeader('Content-Length', String(safeEnd - safeStart + 1));
+                fsSync.createReadStream(job.filePath, { start: safeStart, end: safeEnd }).pipe(res);
+                return;
+            }
+        }
+
+        res.setHeader('Content-Length', String(fileSize));
+        fsSync.createReadStream(job.filePath).pipe(res);
     });
     
     // Get individual video metadata

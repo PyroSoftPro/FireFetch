@@ -54,6 +54,11 @@ function createStatusBar() {
             </span>
         </div>
         <div class="status-right">
+            <span id="ffStatusFfmpegWrap" class="status-pill status-pill--warn" title="Post-processing / FFmpeg is running" style="display:none">
+                <i data-lucide="clapperboard"></i>
+                <span>FFmpeg</span>
+                <strong id="ffStatusFfmpeg">0</strong>
+            </span>
             <span class="status-pill">
                 <i data-lucide="download"></i>
                 <span id="ffStatusDown">0 B/s</span>
@@ -89,6 +94,7 @@ function createStatusBar() {
 
     // Initial empty state
     updateStatusBarDisplay({
+        active: [],
         stats: { active: 0, queued: 0, completed: 0 },
         maxConcurrent: 3,
         totalSpeeds: { download: '0 B/s', upload: '0 B/s' }
@@ -156,6 +162,8 @@ function updateStatusBarDisplay(state) {
     const downEl = document.getElementById('ffStatusDown');
     const upEl = document.getElementById('ffStatusUp');
     const upWrap = document.getElementById('ffStatusUpWrap');
+    const ffmpegEl = document.getElementById('ffStatusFfmpeg');
+    const ffmpegWrap = document.getElementById('ffStatusFfmpegWrap');
 
     if (activeEl) activeEl.textContent = String(state.stats?.active ?? 0);
     if (maxEl) maxEl.textContent = String(state.maxConcurrent ?? state.maxConcurrentDownloads ?? 3);
@@ -164,6 +172,14 @@ function updateStatusBarDisplay(state) {
     if (downEl) downEl.textContent = String(downloadSpeed);
     if (upEl) upEl.textContent = String(uploadSpeed);
     if (upWrap) upWrap.style.display = showUpload ? '' : 'none';
+
+    // FFmpeg/post-processing indicator:
+    // DownloadManager uses status === 'processing' during ffmpeg merge/post-processing phases.
+    const processingCount = Array.isArray(state.active)
+        ? state.active.filter(d => d && d.status === 'processing').length
+        : 0;
+    if (ffmpegEl) ffmpegEl.textContent = String(processingCount);
+    if (ffmpegWrap) ffmpegWrap.style.display = processingCount > 0 ? '' : 'none';
 }
 
 // Clean up on page unload

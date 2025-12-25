@@ -1,6 +1,28 @@
 let searchResults = [];
 let currentSearchQuery = '';
 let currentVideoForDownload = null;
+let currentStreamVideo = null;
+let streamWarmupTimer = null;
+const DEFAULT_STREAM_FORMAT = 'bestvideo[height<=1080]+bestaudio/best[height<=1080]';
+let currentPrefetchJobId = null;
+let prefetchPollTimer = null;
+
+// Debug logging (off by default for performance)
+let FF_SEARCH_DEBUG = false;
+try {
+    FF_SEARCH_DEBUG = localStorage.getItem('firefetch-debug') === '1';
+} catch {}
+const ffSearchLog = (...args) => { if (FF_SEARCH_DEBUG) console.log(...args); };
+const ffSearchWarn = (...args) => { if (FF_SEARCH_DEBUG) console.warn(...args); };
+const ffSearchErr = (...args) => { if (FF_SEARCH_DEBUG) console.error(...args); };
+
+// Best-effort: if backend debug is enabled, allow it to turn on search logs too.
+fetch('/api/debug', { cache: 'no-store' })
+    .then(r => r.ok ? r.json() : null)
+    .then(data => {
+        if (data && typeof data.debug === 'boolean') FF_SEARCH_DEBUG = FF_SEARCH_DEBUG || data.debug;
+    })
+    .catch(() => {});
 
 // Error handling functions (reused from other pages)
 function showDRMError(message = 'This content is protected by DRM (digital-rights management) software. We can\'t legally bypass this.') {
@@ -132,18 +154,18 @@ async function performSearch() {
         }
         
         const data = await response.json();
-        console.log('Search response data:', data); // Debug log
-        console.log('Response status:', response.status); // Debug log
+        ffSearchLog('Search response data:', data);
+        ffSearchLog('Response status:', response.status);
         
         // Update global variable
         searchResults = data.results || [];
-        console.log('Parsed search results length:', searchResults.length); // Debug log
-        console.log('First result:', searchResults[0]); // Debug log
+        ffSearchLog('Parsed search results length:', searchResults.length);
+        ffSearchLog('First result:', searchResults[0]);
         
         displaySearchResults(searchResults);
         
     } catch (error) {
-        console.error('Search error:', error);
+        ffSearchErr('Search error:', error);
         showFetchError('Search failed. Please try again.');
         noResults.style.display = 'block';
     } finally {
@@ -156,14 +178,14 @@ async function performSearch() {
 
 // Display search results
 function displaySearchResults(results) {
-    console.log('displaySearchResults called with:', results); // Debug log
+    ffSearchLog('displaySearchResults called with:', results);
     const searchResultsContainer = document.getElementById('searchResults');
     const noResults = document.getElementById('noResults');
     const searchResultsHeader = document.getElementById('searchResultsHeader');
     const resultsCount = document.getElementById('resultsCount');
     
     if (!results || results.length === 0) {
-        console.log('No results to display'); // Debug log
+        ffSearchLog('No results to display');
         noResults.style.display = 'block';
         searchResultsHeader.style.display = 'none';
         return;
@@ -175,18 +197,17 @@ function displaySearchResults(results) {
     noResults.style.display = 'none';
     
     // Generate HTML for results (Fluent card grid)
-    console.log('About to generate HTML for', results.length, 'results'); // Debug log
+    ffSearchLog('About to generate HTML for', results.length, 'results');
     const htmlContent = results.map((video, index) => {
         const duration = formatDuration(video.duration);
         const thumbnail = video.thumbnail || '';
         const title = escapeHtml(video.title || 'Untitled');
         const uploader = escapeHtml(video.uploader || 'Unknown');
-        const description = escapeHtml(video.description || '');
         
         return `
             <div class="ff-card media-card">
                 ${thumbnail
-                    ? `<img class="media-thumb" src="${thumbnail}" alt="${title}" loading="lazy">`
+                    ? `<img class="media-thumb" src="${thumbnail}" alt="${title}" loading="lazy" decoding="async" fetchpriority="low">`
                     : `<div class="media-thumb" style="display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg, rgba(107,107,107,0.7) 0%, rgba(255,107,53,0.7) 100%);color:white;">
                            <i data-lucide="play-circle"></i>
                        </div>`
@@ -212,8 +233,8 @@ function displaySearchResults(results) {
         `;
     });
     
-    console.log('Generated HTML content length:', htmlContent.length); // Debug log
-    console.log('First HTML snippet:', htmlContent[0]?.substring(0, 200)); // Debug log
+    ffSearchLog('Generated HTML content length:', htmlContent.length);
+    ffSearchLog('First HTML snippet:', htmlContent[0]?.substring(0, 200));
     
     searchResultsContainer.innerHTML = htmlContent.join('');
 
@@ -517,12 +538,17 @@ async function streamVideo(index) {
     try {
         const url = video.webpage_url || video.url;
         if (!url) throw new Error('No video URL available');
-        
-        // Stream through our backend so we can handle DASH/HLS/adaptive formats via ffmpeg,
-        // avoid CORS, and present a single browser-playable MP4 stream.
-        const streamEndpoint = `/api/stream?url=${encodeURIComponent(url)}`;
-        console.log('[STREAM] Starting stream via backend:', streamEndpoint);
-        playVideoStream(streamEndpoint, video.title);
+
+        currentStreamVideo = video;
+        openStreamPlayer(video.title || 'Untitled');
+
+        // Start stream immediately (1080p default) and warm-buffer so the user can hit play once ready.
+        startStreamPlayback(url, DEFAULT_STREAM_FORMAT, video.title);
+
+        // Populate player quality options in the background.
+        populateStreamQualityOptions(url).catch(() => {
+            // Non-fatal: keep Auto streaming.
+        });
         
     } catch (error) {
         console.error('Stream error:', error);
@@ -530,16 +556,293 @@ async function streamVideo(index) {
     }
 }
 
+function openStreamPlayer(title) {
+    const player = document.getElementById('videoPlayer');
+    const titleEl = document.getElementById('playerTitle');
+    const statusEl = document.getElementById('playerBufferStatus');
+    const qualitySelect = document.getElementById('playerQualitySelect');
+
+    if (titleEl) titleEl.textContent = title || 'Untitled';
+    if (statusEl) statusEl.textContent = 'Buffering…';
+    if (qualitySelect) {
+        qualitySelect.disabled = true;
+        qualitySelect.innerHTML = '<option value="">Auto (recommended)</option>';
+    }
+
+    player.style.display = 'flex';
+}
+
+function buildStreamEndpoint(url, formatSelector) {
+    const params = new URLSearchParams();
+    params.set('url', url);
+    if (formatSelector) params.set('format', formatSelector);
+    return `/api/stream?${params.toString()}`;
+}
+
+function formatBytes(bytes) {
+    const n = Number(bytes || 0);
+    if (!Number.isFinite(n) || n <= 0) return '0 B';
+    const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.min(units.length - 1, Math.floor(Math.log(n) / Math.log(1024)));
+    const value = n / Math.pow(1024, i);
+    return `${value.toFixed(value >= 10 || i === 0 ? 0 : 1)} ${units[i]}`;
+}
+
+function updatePlayerBufferStatus(text) {
+    const statusEl = document.getElementById('playerBufferStatus');
+    if (statusEl) statusEl.textContent = text;
+}
+
+function attachPlayerStatusHandlers(playerVideo) {
+    if (!playerVideo || playerVideo.dataset.ffPlayerStatusHandlers) return;
+    playerVideo.dataset.ffPlayerStatusHandlers = '1';
+
+    const getBufferedSeconds = () => {
+        try {
+            if (!playerVideo.buffered || playerVideo.buffered.length === 0) return 0;
+            return Math.max(0, playerVideo.buffered.end(playerVideo.buffered.length - 1) - playerVideo.currentTime);
+        } catch {
+            return 0;
+        }
+    };
+
+    playerVideo.addEventListener('waiting', () => updatePlayerBufferStatus('Buffering…'));
+    playerVideo.addEventListener('stalled', () => updatePlayerBufferStatus('Buffering…'));
+    playerVideo.addEventListener('loadstart', () => updatePlayerBufferStatus('Starting stream…'));
+    playerVideo.addEventListener('canplay', () => {
+        const secs = Math.floor(getBufferedSeconds());
+        updatePlayerBufferStatus(secs > 0 ? `Ready (buffered ~${secs}s). Click play.` : 'Ready. Click play.');
+    });
+    playerVideo.addEventListener('playing', () => updatePlayerBufferStatus('Playing'));
+    playerVideo.addEventListener('pause', () => {
+        if (playerVideo.dataset.ffClosing === '1') return;
+        const secs = Math.floor(getBufferedSeconds());
+        updatePlayerBufferStatus(secs > 0 ? `Paused (buffered ~${secs}s)` : 'Paused');
+    });
+    playerVideo.addEventListener('progress', () => {
+        if (playerVideo.readyState < 2) return;
+        const secs = Math.floor(getBufferedSeconds());
+        if (secs > 0 && playerVideo.paused) {
+            updatePlayerBufferStatus(`Ready (buffered ~${secs}s). Click play.`);
+        }
+    });
+}
+
+function warmBufferStream(playerVideo) {
+    if (!playerVideo) return;
+
+    // Cancel any pending warmup
+    if (streamWarmupTimer) {
+        clearTimeout(streamWarmupTimer);
+        streamWarmupTimer = null;
+    }
+
+    // Warm-buffer by attempting muted autoplay (allowed in Chromium) then pause.
+    playerVideo.muted = true;
+    const playPromise = playerVideo.play();
+
+    const stopWarmup = () => {
+        try { playerVideo.pause(); } catch {}
+        // Reset to start so user hits play from 0
+        try { playerVideo.currentTime = 0; } catch {}
+        playerVideo.muted = false;
+        playerVideo.removeEventListener('canplay', stopWarmup);
+    };
+
+    playerVideo.addEventListener('canplay', stopWarmup, { once: true });
+
+    // Failsafe: stop warmup after a short window so we don't keep the stream running forever.
+    streamWarmupTimer = setTimeout(() => {
+        streamWarmupTimer = null;
+        stopWarmup();
+    }, 30000);
+
+    if (playPromise && typeof playPromise.catch === 'function') {
+        playPromise.catch(() => {
+            // Autoplay blocked; we still keep preload=auto + load(). Status handlers will indicate readiness when possible.
+            playerVideo.removeEventListener('canplay', stopWarmup);
+            if (streamWarmupTimer) {
+                clearTimeout(streamWarmupTimer);
+                streamWarmupTimer = null;
+            }
+            try { playerVideo.muted = false; } catch {}
+        });
+    }
+}
+
+async function cancelPrefetchJob() {
+    if (!currentPrefetchJobId) return;
+    const id = currentPrefetchJobId;
+    currentPrefetchJobId = null;
+    if (prefetchPollTimer) {
+        clearInterval(prefetchPollTimer);
+        prefetchPollTimer = null;
+    }
+    try {
+        await fetch(`/api/prefetch-stream/${encodeURIComponent(id)}/cancel`, { method: 'POST' });
+    } catch {
+        // ignore
+    }
+}
+
+async function startPrefetchAndLoadPlayer(url, formatSelector) {
+    const playerVideo = document.getElementById('playerVideo');
+    if (!playerVideo) return;
+
+    await cancelPrefetchJob();
+
+    // Tear down current <video> source to avoid keeping the old stream alive.
+    playerVideo.dataset.ffClosing = '1';
+    try { playerVideo.pause(); } catch {}
+    playerVideo.src = '';
+    try { playerVideo.load(); } catch {}
+    setTimeout(() => { delete playerVideo.dataset.ffClosing; }, 200);
+
+    updatePlayerBufferStatus('Buffering full video…');
+
+    const resp = await fetch('/api/prefetch-stream', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url, format: formatSelector || null })
+    });
+
+    if (!resp.ok) {
+        const txt = await resp.text().catch(() => '');
+        throw new Error(txt || `Prefetch failed (HTTP ${resp.status})`);
+    }
+
+    const data = await resp.json();
+    const id = data?.id;
+    if (!id) throw new Error('Prefetch did not return an id');
+    currentPrefetchJobId = id;
+
+    const pollOnce = async () => {
+        if (!currentPrefetchJobId || currentPrefetchJobId !== id) return;
+        const sResp = await fetch(`/api/prefetch-stream/${encodeURIComponent(id)}/status`, { cache: 'no-store' });
+        if (!sResp.ok) throw new Error(`Prefetch status failed (HTTP ${sResp.status})`);
+        const st = await sResp.json();
+
+        if (st.status === 'failed') {
+            throw new Error(st.error || 'Prefetch failed');
+        }
+        if (st.status === 'cancelled') {
+            return;
+        }
+
+        const bytes = Number(st.bytesWritten || st.fileSize || 0);
+        updatePlayerBufferStatus(`Buffering full video… ${formatBytes(bytes)}`);
+
+        if (st.status === 'complete') {
+            if (prefetchPollTimer) {
+                clearInterval(prefetchPollTimer);
+                prefetchPollTimer = null;
+            }
+            // Switch player to the fully buffered local file endpoint.
+            playerVideo.preload = 'auto';
+            playerVideo.src = `/api/prefetch-stream/${encodeURIComponent(id)}/file`;
+            playerVideo.load();
+            updatePlayerBufferStatus('Fully buffered. Click play.');
+        }
+    };
+
+    // Poll until complete (or close/cancel).
+    await pollOnce();
+    prefetchPollTimer = setInterval(() => {
+        pollOnce().catch((err) => {
+            if (prefetchPollTimer) {
+                clearInterval(prefetchPollTimer);
+                prefetchPollTimer = null;
+            }
+            showFetchError(`Prefetch failed: ${err?.message || err}`);
+        });
+    }, 1000);
+}
+
+async function populateStreamQualityOptions(url) {
+    const qualitySelect = document.getElementById('playerQualitySelect');
+    if (!qualitySelect) return;
+
+    qualitySelect.disabled = true;
+    qualitySelect.innerHTML = '<option value="">Loading…</option>';
+
+    const response = await fetch('/api/video-info', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url })
+    });
+    if (!response.ok) throw new Error(`video-info HTTP ${response.status}`);
+    const data = await response.json();
+
+    const heights = (data.formats || [])
+        .map(f => Number(f?.height))
+        .filter(n => Number.isFinite(n) && n > 0);
+    const maxHeight = heights.length ? Math.max(...heights) : 1080;
+
+    const presets = [2160, 1440, 1080, 720, 480, 360, 240].filter(h => h <= maxHeight);
+
+    qualitySelect.innerHTML = '';
+    const optAuto = document.createElement('option');
+    optAuto.value = '';
+    optAuto.textContent = 'Auto (recommended)';
+    qualitySelect.appendChild(optAuto);
+
+    presets.forEach((h) => {
+        const opt = document.createElement('option');
+        opt.value = `bestvideo[height<=${h}]+bestaudio/best[height<=${h}]`;
+        opt.textContent = `${h}p`;
+        qualitySelect.appendChild(opt);
+    });
+
+    const optAudio = document.createElement('option');
+    optAudio.value = 'bestaudio/best';
+    optAudio.textContent = 'Audio only';
+    qualitySelect.appendChild(optAudio);
+
+    qualitySelect.disabled = false;
+
+    // Default selection: prefer 1080p; otherwise prefer the highest available preset; otherwise Auto.
+    const has1080 = presets.includes(1080);
+    if (has1080) {
+        qualitySelect.value = `bestvideo[height<=1080]+bestaudio/best[height<=1080]`;
+    } else if (presets.length > 0) {
+        const highest = presets[0];
+        qualitySelect.value = `bestvideo[height<=${highest}]+bestaudio/best[height<=${highest}]`;
+    } else {
+        qualitySelect.value = '';
+    }
+
+    qualitySelect.onchange = () => {
+        if (!currentStreamVideo) return;
+        const selected = qualitySelect.value || null;
+        const streamUrl = currentStreamVideo.webpage_url || currentStreamVideo.url;
+        startStreamPlayback(streamUrl, selected, currentStreamVideo.title);
+    };
+}
+
+function startStreamPlayback(url, formatSelector, title) {
+    // Guarantee "buffer to end" by prefetching the entire stream to a temp mp4 on the backend.
+    // This continues even while the video is paused (Chromium otherwise stops after a small buffer).
+    startPrefetchAndLoadPlayer(url, formatSelector).catch((err) => {
+        console.error('[STREAM] Prefetch error:', err);
+        showFetchError(`Stream prefetch failed: ${err?.message || err}`);
+    });
+}
+
 // Play video in modal player
-function playVideoStream(streamUrl, title) {
+function playVideoStream(streamUrl, title, options = {}) {
     const player = document.getElementById('videoPlayer');
     const playerVideo = document.getElementById('playerVideo');
+    const titleEl = document.getElementById('playerTitle');
     
     // Defensive: yt-dlp can sometimes return multiple URLs separated by newlines.
     const cleanedUrl = String(streamUrl || '')
         .split(/\r?\n/)
         .map((s) => s.trim())
         .filter(Boolean)[0] || '';
+
+    if (titleEl) titleEl.textContent = title || 'Untitled';
+    updatePlayerBufferStatus('Buffering…');
+    attachPlayerStatusHandlers(playerVideo);
     
     // Attach one-time error diagnostics so a blank player becomes actionable.
     if (!playerVideo.dataset.ffStreamHandlers) {
@@ -614,7 +917,11 @@ function playVideoStream(streamUrl, title) {
             playerVideo.play().catch((err) => {
                 console.warn('[STREAM] Autoplay failed:', err?.message || err);
             });
+        } else if (options?.warmBuffer) {
+            warmBufferStream(playerVideo);
         }
+    } else if (options?.warmBuffer) {
+        warmBufferStream(playerVideo);
     }
 }
 
@@ -622,7 +929,14 @@ function playVideoStream(streamUrl, title) {
 function closePlayer() {
     const player = document.getElementById('videoPlayer');
     const playerVideo = document.getElementById('playerVideo');
+    const qualitySelect = document.getElementById('playerQualitySelect');
     
+    if (streamWarmupTimer) {
+        clearTimeout(streamWarmupTimer);
+        streamWarmupTimer = null;
+    }
+    cancelPrefetchJob();
+
     // Mark closing so the <video> error handler doesn't show a toast while we tear down.
     playerVideo.dataset.ffClosing = '1';
     playerVideo.pause();
@@ -634,6 +948,11 @@ function closePlayer() {
         // ignore
     }
     player.style.display = 'none';
+    currentStreamVideo = null;
+    if (qualitySelect) {
+        qualitySelect.disabled = true;
+        qualitySelect.innerHTML = '<option value="">Auto (recommended)</option>';
+    }
     setTimeout(() => {
         delete playerVideo.dataset.ffClosing;
     }, 500);

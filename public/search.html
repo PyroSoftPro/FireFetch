@@ -54,7 +54,21 @@
     <div id="videoPlayer" class="video-player ff-overlay">
         <div class="video-player-content">
             <button class="close-player" onclick="closePlayer()">×</button>
-            <video id="playerVideo" controls></video>
+            <div class="video-player-panel">
+                <div class="video-player-toolbar">
+                    <div class="video-player-meta">
+                        <div id="playerTitle" class="video-player-title">Loading…</div>
+                        <div id="playerBufferStatus" class="video-player-status">Buffering…</div>
+                    </div>
+                    <div class="video-player-actions">
+                        <label for="playerQualitySelect" class="video-player-label">Quality</label>
+                        <select id="playerQualitySelect" class="video-player-select" disabled>
+                            <option value="">Auto</option>
+                        </select>
+                    </div>
+                </div>
+                <video id="playerVideo" controls></video>
+            </div>
         </div>
     </div>
     
