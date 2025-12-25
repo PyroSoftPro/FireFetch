@@ -1,0 +1,214 @@
+:root {
+  /* Match FireFetch's Fluent-ish dark theme + orange accent */
+  --bg0: #0b0c0f;
+  --bg1: #0f1117;
+  --panel: rgba(24, 26, 33, 0.72);
+  --panel-strong: rgba(24, 26, 33, 0.92);
+  --border: rgba(255, 255, 255, 0.10);
+  --text: rgba(255, 255, 255, 0.92);
+  --muted: rgba(255, 255, 255, 0.66);
+  --accent: #ff6b35;
+  --accent2: #ff8a3d;
+  --accentGlow: rgba(255, 107, 53, 0.26);
+  --danger: #ef4444;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  width: 420px;
+  background:
+    radial-gradient(520px 320px at 18% 0%, rgba(160, 14, 30, 0.24), transparent 60%),
+    radial-gradient(420px 280px at 88% 18%, rgba(255, 107, 53, 0.12), transparent 55%),
+    linear-gradient(135deg, #140507 0%, #0b0c0f 55%, #050608 100%);
+  color: var(--text);
+  font: 12px/1.35 "Segoe UI Variable", "Segoe UI", Inter, system-ui, -apple-system, sans-serif;
+}
+
+header {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(0, 0, 0, 0.12);
+  backdrop-filter: blur(14px) saturate(1.2);
+}
+
+.title {
+  font-weight: 700;
+  font-size: 13px;
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+}
+
+.brand {
+  font-weight: 820;
+  letter-spacing: 0.2px;
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 10px 22px var(--accentGlow));
+}
+
+.subtitle {
+  color: var(--muted);
+  font-weight: 650;
+}
+
+.meta {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--panel);
+  backdrop-filter: blur(18px) saturate(1.25);
+}
+
+button {
+  appearance: none;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text);
+  padding: 8px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: transform 0.18s ease, filter 0.18s ease, border-color 0.18s ease,
+    background 0.18s ease;
+}
+
+button.primary {
+  border-color: rgba(255, 107, 53, 0.30);
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 100%);
+  color: white;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.38), 0 8px 26px var(--accentGlow);
+}
+
+button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  filter: brightness(1.03);
+  border-color: rgba(255, 107, 53, 0.22);
+  background: rgba(255, 107, 53, 0.12);
+}
+
+button.primary:hover:not(:disabled) {
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 100%);
+  filter: brightness(1.03);
+}
+
+button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+  filter: none;
+}
+
+.filters {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.checkbox {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  color: var(--muted);
+  user-select: none;
+}
+
+.status {
+  margin-left: auto;
+  color: var(--muted);
+}
+
+main {
+  max-height: 520px;
+  overflow: auto;
+}
+
+.list {
+  padding: 8px 12px 12px;
+}
+
+.item {
+  display: grid;
+  grid-template-columns: 18px 1fr;
+  gap: 10px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  margin-top: 8px;
+  background: rgba(24, 26, 33, 0.52);
+  backdrop-filter: blur(18px) saturate(1.25);
+}
+
+.item.unsupported {
+  opacity: 0.65;
+  border-color: color-mix(in srgb, var(--danger) 40%, var(--border));
+}
+
+.rowTop {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+}
+
+.pill {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 10px;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.label {
+  font-weight: 650;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.url {
+  margin-top: 4px;
+  color: var(--muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono",
+    monospace;
+  font-size: 10.5px;
+  word-break: break-all;
+}
+
+.warn {
+  margin-top: 6px;
+  color: color-mix(in srgb, var(--danger) 75%, white);
+  font-size: 10.5px;
+}
+
+footer {
+  padding: 10px 12px 12px;
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+}
+
+.hint {
+  font-size: 11px;
+}
+
+

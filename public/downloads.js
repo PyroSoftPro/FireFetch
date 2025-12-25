@@ -596,6 +596,10 @@ function createDownloadItem(download) {
     
     const progressPercent = download.progress || 0;
     const addedTime = new Date(download.addedAt).toLocaleString();
+    const thumb = download.thumbnail ? String(download.thumbnail) : '';
+    const thumbHtml = thumb
+        ? `<img class="download-thumb" src="${thumb}" alt="" loading="lazy" referrerpolicy="no-referrer" />`
+        : '';
     
     // Create torrent-specific details if it's a torrent/magnet
     const torrentDetails = (downloadType === 'torrent' || downloadType === 'magnet') ? `
@@ -611,6 +615,7 @@ function createDownloadItem(download) {
     
     item.innerHTML = `
         <div class="download-header">
+            ${thumbHtml}
             <div class="download-info">
                 <div class="download-url" title="${download.url}">
                     ${download.title || download.url}

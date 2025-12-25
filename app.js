@@ -807,7 +807,7 @@ class DownloadManager extends EventEmitter {
     }
 
     // Add download to queue
-    addToQueue(url, format, title = null, resolvedMethod = null, resolvedType = null) {
+    addToQueue(url, format, title = null, resolvedMethod = null, resolvedType = null, metadata = null) {
         // Use resolved method if provided, otherwise detect download type
         let downloadType;
         
@@ -853,6 +853,10 @@ class DownloadManager extends EventEmitter {
             url,
             format,
             title: title || (downloadType === 'video' ? url : `${downloadType.charAt(0).toUpperCase() + downloadType.slice(1)} Download`),
+            // Optional metadata (useful for nicer UI in Downloads/Queue)
+            thumbnail: metadata?.thumbnail || null,
+            webpage_url: metadata?.webpage_url || null,
+            extractor: metadata?.extractor || null,
             status: 'queued',
             progress: 0,
             speed: null,
@@ -3780,7 +3784,7 @@ function createServer() {
     
     // Endpoint for direct file downloads
     expressApp.post('/api/file-download', async (req, res) => {
-        const { url } = req.body;
+        const { url, title } = req.body;
         
         if (!url) {
             return res.status(400).json({ error: 'URL is required' });
@@ -3803,8 +3807,8 @@ function createServer() {
                 clientIP: req.ip || req.connection.remoteAddress
             });
             
-            // Use the existing download manager
-            const downloadId = downloadManager.addToQueue(url, 'file', title);
+            // Use the existing download manager (title optional; aria2c will later replace it with filename)
+            const downloadId = downloadManager.addToQueue(url, 'file', title || null);
             
             logger.info('API', 'File download added to queue successfully', {
                 endpoint: '/api/file-download',
@@ -3832,7 +3836,7 @@ function createServer() {
     
     // Endpoint to add download to queue
     expressApp.post('/api/download', async (req, res) => {
-        const { url, format, title, resolvedMethod, resolvedType } = req.body;
+        const { url, format, title, resolvedMethod, resolvedType, thumbnail, webpage_url, extractor } = req.body;
 
         logger.info('API', 'Download request received', {
             endpoint: '/api/download',
@@ -3849,7 +3853,14 @@ function createServer() {
 
         try {
             console.log(`[API] Attempting to add download to queue: ${url}`);
-            const downloadId = downloadManager.addToQueue(url, format, title, resolvedMethod, resolvedType);
+            const downloadId = downloadManager.addToQueue(
+                url,
+                format,
+                title,
+                resolvedMethod,
+                resolvedType,
+                { thumbnail, webpage_url, extractor }
+            );
             console.log(`[API] Download added successfully with ID: ${downloadId}`);
             
             logger.info('API', 'Download added to queue successfully', {

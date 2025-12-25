@@ -1,0 +1,51 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>FireFetch</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <header>
+      <div class="title"><span class="brand">FireFetch</span> <span class="subtitle">Page Detector</span></div>
+      <div id="pageMeta" class="meta"></div>
+    </header>
+
+    <section class="actions">
+      <button id="scanBtn" class="primary">Scan page</button>
+      <button id="sendSelectedBtn" disabled>Send selected to FireFetch</button>
+      <button id="sendPageBtn">Send page to FireFetch</button>
+    </section>
+
+    <section class="filters">
+      <label class="checkbox">
+        <input id="hideUnsupported" type="checkbox" checked />
+        Hide unsupported (blob/data)
+      </label>
+      <label class="checkbox">
+        <input id="enableToast" type="checkbox" />
+        Popup on media detected
+      </label>
+      <label class="checkbox">
+        <input id="selectAll" type="checkbox" />
+        Select all
+      </label>
+      <span id="status" class="status"></span>
+    </section>
+
+    <main>
+      <div id="list" class="list"></div>
+    </main>
+
+    <footer>
+      <div class="hint">
+        Tip: some sites use streaming segments (e.g. HLS) which can show as many files or require a dedicated downloader.
+      </div>
+    </footer>
+
+    <script src="popup.js"></script>
+  </body>
+</html>
+
+
