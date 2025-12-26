@@ -6,6 +6,8 @@ FireFetch is a desktop downloader built with **Electron + Express**, powered by 
 - **Binary distribution**: prebuilt releases are available on **Itch.io** as **donationware** (free download, optional donation).
 - **Sponsor**: Sponsored by [Playcast.io](https://playcast.io).
 
+<img width="1348" height="893" alt="image" src="https://github.com/user-attachments/assets/24bdc809-c281-452f-aa49-13893a7b05f8" />
+
 ## What it does
 
 - **Video downloads** via `yt-dlp` (format selection, metadata, many supported sites depending on your bundled `yt-dlp` version)
@@ -38,6 +40,8 @@ FireFetch stores its data relative to the app’s base directory:
 - **Download output**: `downloads/` (configurable in Settings)
 - **Cookie storage**: `cookies/` (only used if you upload cookies)
 - **Bundled tools**: `dep/`
+
+<img width="1348" height="1016" alt="image" src="https://github.com/user-attachments/assets/8126c369-f444-420d-8d64-4c69bba985e8" />
 
 ## Notes
 
