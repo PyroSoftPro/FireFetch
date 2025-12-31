@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "savedAt": "2025-12-25T07:00:39.679Z",
-  "nextId": 48,
+  "savedAt": "2025-12-26T08:12:57.226Z",
+  "nextId": 49,
   "queue": [
     {
       "id": "download_33_1766503397225",
@@ -266,9 +266,53 @@
       "leechers": null,
       "peers": 0,
       "ratio": null
+    },
+    {
+      "id": "download_48_1766736735956",
+      "url": "https://www.youtube.com/watch?v=RYbKZ6UDf30",
+      "format": "301",
+      "title": "vSeeBox V6 Max Review: The Best Android TV Box in 2025?",
+      "status": "completed",
+      "progress": 100,
+      "speed": null,
+      "eta": null,
+      "size": "207.56MiB",
+      "error": null,
+      "retryCount": 0,
+      "addedAt": "2025-12-26T08:12:15.956Z",
+      "startedAt": "2025-12-26T08:12:15.957Z",
+      "completedAt": "2025-12-26T08:12:56.224Z",
+      "downloadType": "video",
+      "uploadSpeed": null,
+      "seeds": null,
+      "leechers": null,
+      "peers": 0,
+      "ratio": null
     }
   ],
   "completedDownloads": [
+    {
+      "id": "download_48_1766736735956",
+      "url": "https://www.youtube.com/watch?v=RYbKZ6UDf30",
+      "format": "301",
+      "title": "vSeeBox V6 Max Review: The Best Android TV Box in 2025?",
+      "status": "completed",
+      "progress": 100,
+      "speed": null,
+      "eta": null,
+      "size": "207.56MiB",
+      "error": null,
+      "retryCount": 0,
+      "addedAt": "2025-12-26T08:12:15.956Z",
+      "startedAt": "2025-12-26T08:12:15.957Z",
+      "completedAt": "2025-12-26T08:12:56.224Z",
+      "downloadType": "video",
+      "uploadSpeed": null,
+      "seeds": null,
+      "leechers": null,
+      "peers": 0,
+      "ratio": null
+    },
     {
       "id": "download_47_1766646031632",
       "url": "https://www.youtube.com/watch?v=onzL0EM1pKY",

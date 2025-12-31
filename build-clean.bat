@@ -90,8 +90,8 @@ mkdir "dist\FireFetch\resources"
 copy "dist\win-unpacked\resources\app.asar" "dist\FireFetch\resources\" >nul
 xcopy "dist\win-unpacked\resources\app.asar.unpacked\node_modules" "dist\FireFetch\resources\app.asar.unpacked\node_modules\" /E /Y /I >nul 2>&1
 
-REM Copy our resources (dep and public)
-xcopy "dist\win-unpacked\resources\dep" "dist\FireFetch\resources\dep\" /E /Y /I >nul
+REM Copy our resources (public) + external tools (dep)
+xcopy "dep" "dist\FireFetch\dep\" /E /Y /I >nul
 xcopy "dist\win-unpacked\resources\public" "dist\FireFetch\resources\public\" /E /Y /I >nul
 
 REM Create empty folders
@@ -115,7 +115,7 @@ echo - Or run FireFetch.bat
 echo.
 echo Directory Structure:
 echo - FireFetch.exe - Main application
-echo - resources\dep\ - Required tools (aria2c, ffmpeg, yt-dlp)
+echo - dep\ - Required tools (aria2c, ffmpeg, yt-dlp)
 echo - resources\public\ - Application UI files
 echo - downloads\ - Your downloaded videos
 echo - cookies\ - Cookie files for authentication

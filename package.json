@@ -12,6 +12,7 @@
     "build-linux": "electron-builder --linux",
     "build-clean": "electron-builder build --win --dir --config.asar=false",
     "build-portable": "electron-builder --win portable",
+    "build-single-exe": "electron-builder --win portable",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
@@ -53,10 +54,17 @@
     "files": [
       "**/*",
       "!*.log",
+      "!logs/**/*",
       "!dist",
+      "!dep/**/*",
+      "!public/**/*",
       "!build-*.bat",
+      "!stream-cache/**/*",
       "!downloads/**/*",
       "!cookies/**/*",
+      "!settings.json",
+      "!downloads-state.json",
+      "!app_log.txt",
       "!node_modules/*/.git/**",
       "!**/node_modules/*/{CHANGELOG.md,README.md,README,readme.md,readme}",
       "!**/node_modules/*/{test,__tests__,tests,powered-test,example,examples}",
@@ -70,14 +78,7 @@
       "!**/{appveyor.yml,.travis.yml,circle.yml}",
       "!**/{npm-debug.log,yarn.lock,.yarn-integrity,.yarn-metadata.json}"
     ],
-    "asarUnpack": [
-      "dep/**/*"
-    ],
     "extraResources": [
-      {
-        "from": "dep",
-        "to": "dep"
-      },
       {
         "from": "public",
         "to": "public"

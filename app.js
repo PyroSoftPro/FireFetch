@@ -208,11 +208,19 @@ const DEBUG_LOGS = process.env.FIREFETCH_DEBUG === '1';
 
 if (app.isPackaged) {
     const exeDir = path.dirname(process.execPath);
-    
-    // Check if running as portable (exe extracts to temp)
-    if (process.execPath.includes('\\Temp\\') || process.execPath.includes('/tmp/')) {
+
+    // Electron Builder "portable" target sets this env var to the real location of the portable exe.
+    // This is more reliable than guessing based on Temp paths.
+    const portableExeDir = process.env.PORTABLE_EXECUTABLE_DIR;
+
+    if (portableExeDir && fsSync.existsSync(portableExeDir)) {
         isPortable = true;
-        // For portable, find the real exe location
+        basePath = portableExeDir;
+    } else if (process.execPath.includes('\\Temp\\') || process.execPath.includes('/tmp/')) {
+        // Fallback for portable-style self-extracting runs when env vars are missing.
+        isPortable = true;
+
+        // Try to recover the original exe location if a marker exists.
         const portableFile = path.join(app.getPath('appData'), app.getName(), '.portable');
         if (fsSync.existsSync(portableFile)) {
             try {
@@ -221,7 +229,6 @@ if (app.isPackaged) {
                     basePath = path.dirname(content);
                 }
             } catch (e) {
-                // Fall back to exe directory
                 basePath = exeDir;
             }
         } else {
@@ -230,22 +237,19 @@ if (app.isPackaged) {
     } else {
         basePath = exeDir;
     }
-    
+
+    // In this app, "userDataPath" is used for logs and other persisted files we keep next to basePath.
     userDataPath = basePath;
-    
-    // In packaged app, resources depend on build type
-    if (fsSync.existsSync(path.join(basePath, 'resources'))) {
-        resourcesPath = path.join(basePath, 'resources');
-    } else if (fsSync.existsSync(path.join(exeDir, 'resources'))) {
-        resourcesPath = path.join(exeDir, 'resources');
-    } else {
-        resourcesPath = basePath;
-    }
-    
-    // dep folder location
+
+    // In packaged mode, use Electron's resourcesPath (works for installed + portable self-extracting runs).
+    resourcesPath = process.resourcesPath || path.join(exeDir, 'resources');
+
+    // dep folder location:
+    // - Prefer adjacent dep/ (allows user to override tools next to exe)
+    // - Else fall back to bundled dep/ inside resources
     if (fsSync.existsSync(path.join(basePath, 'dep'))) {
         depPath = path.join(basePath, 'dep');
-    } else if (fsSync.existsSync(path.join(resourcesPath, 'dep'))) {
+    } else if (resourcesPath && fsSync.existsSync(path.join(resourcesPath, 'dep'))) {
         depPath = path.join(resourcesPath, 'dep');
     } else {
         depPath = path.join(basePath, 'dep');
@@ -375,6 +379,41 @@ function resolvePathInsideDir(baseDir, userPath) {
         throw err;
     }
     return targetAbs;
+}
+
+// Normalize YouTube URLs to extract video ID when playlist parameters are present
+function normalizeYouTubeUrl(url) {
+    try {
+        const urlObj = new URL(url);
+        const hostname = urlObj.hostname.toLowerCase();
+        
+        // Check if this is a YouTube URL
+        if (!hostname.includes('youtube.com') && !hostname.includes('youtu.be')) {
+            return url; // Not a YouTube URL, return as-is
+        }
+        
+        let videoId = null;
+        
+        // Handle youtube.com/watch?v=VIDEO_ID format
+        if (hostname.includes('youtube.com') && urlObj.pathname.includes('/watch')) {
+            videoId = urlObj.searchParams.get('v');
+        }
+        // Handle youtu.be/VIDEO_ID format
+        else if (hostname.includes('youtu.be')) {
+            videoId = urlObj.pathname.substring(1); // Remove leading slash
+        }
+        
+        // If we found a video ID, reconstruct a clean URL
+        if (videoId && videoId.length === 11) { // YouTube video IDs are 11 characters
+            return `https://www.youtube.com/watch?v=${videoId}`;
+        }
+        
+        // If no valid video ID found, return original URL
+        return url;
+    } catch (error) {
+        // If URL parsing fails, return original URL
+        return url;
+    }
 }
 
 // Utility function to detect if URL is a direct file download
@@ -576,8 +615,10 @@ async function resolveUrlAndDetermineMethod(url, options = {}) {
 // Check if yt-dlp supports the URL
 async function checkYtDlpSupport(url) {
     return new Promise((resolve) => {
+        // Normalize YouTube URLs to handle playlist parameters correctly
+        const normalizedUrl = normalizeYouTubeUrl(url);
         const ytDlpPath = path.join(depPath, 'yt-dlp.exe');
-        const args = ['--dump-json', '--no-warnings', '--skip-download', '--playlist-items', '1', url];
+        const args = ['--dump-json', '--no-warnings', '--skip-download', '--no-playlist', normalizedUrl];
 
         let ytDlpProc = null;
         let settled = false;
@@ -1135,7 +1176,9 @@ class DownloadManager extends EventEmitter {
             args.push('--cookies', settings.cookieFile);
         }
         
-        args.push(download.url);
+        // Normalize YouTube URLs to handle playlist parameters correctly
+        const normalizedUrl = normalizeYouTubeUrl(download.url);
+        args.push(normalizedUrl);
 
         logger.debug('YT-DLP', `Executing yt-dlp with args`, {
             downloadId: download.id,
@@ -3634,12 +3677,16 @@ function createServer() {
             return res.status(400).json({ error: 'URL is required' });
         }
         
+        // Normalize YouTube URLs to handle playlist parameters correctly
+        const normalizedUrl = normalizeYouTubeUrl(url);
+        
         // Let yt-dlp try to handle any URL - it will determine if it's supported
 
         try {
             const args = [
                 '-J',
-                '--no-warnings'
+                '--no-warnings',
+                '--no-playlist' // Ensure we only get the specific video, not the playlist
             ];
             
             // Add cookie file if configured
@@ -3647,7 +3694,7 @@ function createServer() {
                 args.push('--cookies', settings.cookieFile);
             }
             
-            args.push(url);
+            args.push(normalizedUrl);
             
             const ytDlp = spawn(path.join(depPath, 'yt-dlp.exe'), args);
 
@@ -4438,6 +4485,9 @@ function createServer() {
             const ytDlpPath = path.join(depPath, 'yt-dlp.exe');
             const ffmpegPath = path.join(depPath, 'ffmpeg.exe');
             
+            // Normalize YouTube URLs to handle playlist parameters correctly
+            const normalizedUrl = normalizeYouTubeUrl(url);
+            
             const buildYtDlpArgs = () => {
                 // Try to prefer broadly compatible H.264/AAC first; fall back to "best" if needed.
                 // Note: when using separate streams, yt-dlp prints 2 URLs (video then audio).
@@ -4455,7 +4505,7 @@ function createServer() {
                     '--no-playlist',
                     '--no-warnings',
                     '--format', format,
-                    url
+                    normalizedUrl
                 ];
                 
                 if (settings.cookieFile && fsSync.existsSync(settings.cookieFile)) {

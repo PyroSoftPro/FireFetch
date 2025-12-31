@@ -83,9 +83,9 @@ build-clean.bat
 dist/FireFetch/
 ├── FireFetch.exe           # Main application
 ├── FireFetch.bat           # Launcher script
+├── dep/                    # External tools
 ├── resources/              # Application code and assets
 │   ├── app.asar           # Packaged application code
-│   ├── dep/               # External tools
 │   └── public/            # Frontend files
 ├── downloads/             # Download directory (empty)
 ├── cookies/               # Cookie storage (empty)
@@ -118,6 +118,18 @@ dist/FireFetch-Portable/
 └── README.txt              # Portable instructions
 ```
 
+### 6. Single-File Portable Build (Just the EXE)
+If you want to distribute **only one file**, build the standalone portable exe:
+
+```bash
+build-single-exe.bat
+```
+
+**Output:**
+```
+dist/FireFetch-Portable.exe
+```
+
 ## Build Configuration
 
 ### Package.json Build Section
@@ -135,17 +147,14 @@ dist/FireFetch-Portable/
     },
     "files": [
       "**/*",
+      "!dep/**/*",
       "!downloads/**/*",
       "!cookies/**/*",
       "!build-*.bat"
     ],
     "extraResources": [
       {
-        "from": "dep",
-        "to": "dep"
-      },
-      {
-        "from": "public", 
+        "from": "public",
         "to": "public"
       }
     ]
@@ -154,9 +163,9 @@ dist/FireFetch-Portable/
 ```
 
 **Key Settings:**
-- `extraResources` - Copies `dep/` and `public/` to resources folder
-- `files` exclusions - Prevents user data from being packaged
-- `asarUnpack` - Keeps `dep/` folder accessible for child processes
+- `files` exclusions - Prevents user data (and `dep/`) from being packaged
+- `extraResources` - Copies `public/` to the resources folder (the app serves UI from `resourcesPath/public`)
+- `dep/` - Intentionally NOT packaged into the app; build scripts copy `dep/` next to the final executable
 
 ### Path Resolution
 The application handles different path configurations:

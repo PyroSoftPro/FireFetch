@@ -6,3 +6,5 @@ downloads/
 *.log
 cookies/
 settings.json
+/dist2
+/dist
