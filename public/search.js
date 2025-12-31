@@ -342,7 +342,8 @@ async function openDownloadModal(index) {
                 
                 bestFormats.forEach(format => {
                     const option = document.createElement('option');
-                    option.value = format.format_id;
+                    // Prefix with "id:" to indicate pre-merged format (already has audio)
+                    option.value = `id:${format.format_id}`;
                     let text = `${format.resolution || format.height + 'p' || 'Unknown'}`;
                     if (format.fps && format.fps > 30) {
                         text += `@${format.fps}fps`;
@@ -368,7 +369,8 @@ async function openDownloadModal(index) {
                 
                 videoFormats.forEach(format => {
                     const option = document.createElement('option');
-                    option.value = format.format_id;
+                    // Prefix with "idv:" to indicate video-only format (needs audio merging)
+                    option.value = `idv:${format.format_id}`;
                     let text = `${format.resolution || format.height + 'p' || 'Unknown'}`;
                     if (format.fps && format.fps > 30) {
                         text += `@${format.fps}fps`;

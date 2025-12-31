@@ -36,23 +36,6 @@ function createStatusBar() {
 
     // Build stable DOM once (so SSE updates only touch text nodes)
     statusBar.innerHTML = `
-        <div class="status-left">
-            <a class="status-pill status-pill--accent" href="downloads.html" title="Open Queue">
-                <i data-lucide="activity"></i>
-                <span>Active</span>
-                <strong id="ffStatusActive">0</strong><span class="status-sep">/</span><span id="ffStatusMax">3</span>
-            </a>
-            <span class="status-pill status-pill--info">
-                <i data-lucide="inbox"></i>
-                <span>Queued</span>
-                <strong id="ffStatusQueued">0</strong>
-            </span>
-            <span class="status-pill status-pill--good">
-                <i data-lucide="check-circle-2"></i>
-                <span>Done</span>
-                <strong id="ffStatusCompleted">0</strong>
-            </span>
-        </div>
         <div class="status-right">
             <span id="ffStatusFfmpegWrap" class="status-pill status-pill--warn" title="Post-processing / FFmpeg is running" style="display:none">
                 <i data-lucide="clapperboard"></i>
@@ -95,7 +78,7 @@ function createStatusBar() {
     // Initial empty state
     updateStatusBarDisplay({
         active: [],
-        stats: { active: 0, queued: 0, completed: 0 },
+        stats: {},
         maxConcurrent: 3,
         totalSpeeds: { download: '0 B/s', upload: '0 B/s' }
     });
@@ -155,20 +138,12 @@ function updateStatusBarDisplay(state) {
     // Only show upload speed if it's greater than 0
     const showUpload = uploadSpeed !== '0 B/s' && uploadSpeed !== '0.0 B/s';
 
-    const activeEl = document.getElementById('ffStatusActive');
-    const maxEl = document.getElementById('ffStatusMax');
-    const queuedEl = document.getElementById('ffStatusQueued');
-    const completedEl = document.getElementById('ffStatusCompleted');
     const downEl = document.getElementById('ffStatusDown');
     const upEl = document.getElementById('ffStatusUp');
     const upWrap = document.getElementById('ffStatusUpWrap');
     const ffmpegEl = document.getElementById('ffStatusFfmpeg');
     const ffmpegWrap = document.getElementById('ffStatusFfmpegWrap');
 
-    if (activeEl) activeEl.textContent = String(state.stats?.active ?? 0);
-    if (maxEl) maxEl.textContent = String(state.maxConcurrent ?? state.maxConcurrentDownloads ?? 3);
-    if (queuedEl) queuedEl.textContent = String(state.stats?.queued ?? 0);
-    if (completedEl) completedEl.textContent = String(state.stats?.completed ?? 0);
     if (downEl) downEl.textContent = String(downloadSpeed);
     if (upEl) upEl.textContent = String(uploadSpeed);
     if (upWrap) upWrap.style.display = showUpload ? '' : 'none';

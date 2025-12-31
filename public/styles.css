@@ -107,11 +107,12 @@ body::before {
     max-width: 800px;
     margin: 0 auto;
     padding: 28px 0;
-    /* Home page uses this wrapper for the Fetch "modal" card; center it vertically */
+    /* Home page uses this wrapper for the Fetch "modal" card; positioned higher (10% up from center) */
     flex: 1;
     display: flex;
     flex-direction: column;
-    justify-content: center;
+    justify-content: flex-start;
+    margin-top: calc(40vh - 200px);
 }
 
 h1 {

@@ -164,6 +164,7 @@ class VersionBanner {
         const msg = document.createElement('span');
         msg.className = 'version-footer-message version-footer-message--error';
         msg.textContent = message;
+        msg.title = 'Checks GitHub for the latest version';
         slot.appendChild(msg);
     }
 
@@ -182,6 +183,7 @@ class VersionBanner {
         const msg = document.createElement('span');
         msg.className = `version-footer-message version-footer-message--${status}`;
         msg.textContent = banner?.text || '';
+        msg.title = 'Checks GitHub for the latest version';
         slot.appendChild(msg);
 
         if (banner?.updateUrl && status === 'outOfDate') {

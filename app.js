@@ -1093,17 +1093,54 @@ class DownloadManager extends EventEmitter {
         
         let formatString = download.format || 'best';
         
-        // Handle format selection
-        if (download.format && download.format !== 'best' && download.format.match(/^\d+$/)) {
-            formatString = `${download.format}+bestaudio[ext=m4a]/${download.format}+bestaudio/best`;
+        // Handle format selection - ensure audio is always included for video formats
+        if (download.format && download.format !== 'best') {
+            // Handle numeric format IDs (e.g., "137")
+            if (download.format.match(/^\d+$/)) {
+                formatString = `${download.format}+bestaudio[ext=m4a]/${download.format}+bestaudio/best`;
+            }
+            // Handle "id:FORMAT_ID" - pre-merged format (should have audio, but ensure it)
+            else if (download.format.startsWith('id:')) {
+                const formatId = download.format.substring(3);
+                // Pre-merged formats should have audio, but add fallback to ensure audio is included
+                formatString = `${formatId}/bestvideo[format_id=${formatId}]+bestaudio/best`;
+            }
+            // Handle "idv:FORMAT_ID" - video-only format (definitely needs audio)
+            else if (download.format.startsWith('idv:')) {
+                const formatId = download.format.substring(4);
+                formatString = `${formatId}+bestaudio[ext=m4a]/${formatId}+bestaudio/best`;
+            }
+            // Handle "height:HEIGHT" format (e.g., "height:720")
+            else if (download.format.startsWith('height:')) {
+                const height = download.format.substring(7);
+                // Ensure audio is always included for height-based selections
+                formatString = `bestvideo[height<=${height}]+bestaudio[ext=m4a]/bestvideo[height<=${height}]+bestaudio/best[height<=${height}][vcodec!=none][acodec!=none]/best[height<=${height}]`;
+            }
+            // Handle format strings that already include audio (like "bestvideo+bestaudio")
+            else if (download.format.includes('+bestaudio') || download.format.includes('[acodec')) {
+                // Format already includes audio merging, use as-is
+                formatString = download.format;
+            }
+            // For any other format string, ensure audio is included
+            else {
+                // Try to extract format ID if it's a simple format selector
+                const formatMatch = download.format.match(/^(\d+)$/);
+                if (formatMatch) {
+                    const formatId = formatMatch[1];
+                    formatString = `${formatId}+bestaudio[ext=m4a]/${formatId}+bestaudio/best`;
+                } else {
+                    // For complex format strings, append audio merging
+                    formatString = `${download.format}+bestaudio[ext=m4a]/${download.format}+bestaudio/best`;
+                }
+            }
         } else if (download.format === 'best' || !download.format) {
             // Improved best quality format string that prioritizes highest resolution video+audio
             // regardless of container format (mp4, webm, etc.), then falls back gracefully:
             // 1. bestvideo+bestaudio: Best video + best audio (separate streams merged)
-            // 2. best[height>=1080]: Best pre-merged format 1080p or higher
-            // 3. best[height>=720]: Best pre-merged format 720p or higher
-            // 4. best: Overall best available format as final fallback
-            formatString = 'bestvideo+bestaudio/best[height>=1080]/best[height>=720]/best';
+            // 2. best[height>=1080]: Best pre-merged format 1080p or higher (must have both video and audio)
+            // 3. best[height>=720]: Best pre-merged format 720p or higher (must have both video and audio)
+            // 4. best: Overall best available format as final fallback (must have both video and audio)
+            formatString = 'bestvideo+bestaudio/best[height>=1080][vcodec!=none][acodec!=none]/best[height>=720][vcodec!=none][acodec!=none]/best[vcodec!=none][acodec!=none]';
         }
         
         const outputDir = settings.downloadDir;
@@ -3114,18 +3151,43 @@ class DownloadManager extends EventEmitter {
             return cleaned;
         };
         
+        // Calculate accurate stats based on actual download status
+        const activeDownloadsList = Array.from(this.activeDownloads.values());
+        
+        // Active downloads: only count downloads that are actually running (starting, downloading, processing)
+        // Downloads in activeDownloads should not be in queue, so we count them separately
+        const activeCount = activeDownloadsList.filter(d => 
+            d && ['starting', 'downloading', 'processing'].includes(d.status)
+        ).length;
+        
+        // Queued downloads: count downloads in queue with queued or retrying status
+        // Note: Downloads move from queue to activeDownloads when they start, so no overlap
+        const queuedCount = this.queue.filter(d => 
+            d && (d.status === 'queued' || d.status === 'retrying')
+        ).length;
+        
+        // Completed downloads: count only truly completed downloads (exclude failed/cancelled)
+        const completedCount = this.completedDownloads.filter(d => 
+            d && d.status === 'completed'
+        ).length;
+        
+        // Failed downloads: count failed downloads from queue (failed downloads stay in queue, not completedDownloads)
+        const failedCount = this.queue.filter(d => 
+            d && d.status === 'failed'
+        ).length;
+        
         return {
             queue: this.queue.map(cleanDownload),
-            active: Array.from(this.activeDownloads.values()).map(cleanDownload),
+            active: activeDownloadsList.map(cleanDownload),
             completed: this.completedDownloads.slice(0, 20).map(cleanDownload), // Last 20 completed
             queueEnabled: settings.queueEnabled,
             maxConcurrent: settings.maxConcurrentDownloads,
             totalSpeeds: totalSpeeds,
             stats: {
-                queued: this.queue.filter(d => d.status === 'queued').length,
-                active: this.activeDownloads.size,
-                completed: this.completedDownloads.length,
-                failed: this.queue.filter(d => d.status === 'failed').length
+                queued: queuedCount,
+                active: activeCount,
+                completed: completedCount,
+                failed: failedCount
             }
         };
     }
