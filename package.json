@@ -38,7 +38,7 @@
     "appId": "com.firefetch.app",
     "productName": "FireFetch",
     "directories": {
-      "output": "dist-new"
+      "output": "dist"
     },
     "win": {
       "target": [
